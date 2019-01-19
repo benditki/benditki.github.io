@@ -2,6 +2,7 @@
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <script src="https://unpkg.com/konva@2.4.2/konva.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.1.1/howler.core.min.js"></script>
 <style>
 <style>
 * {
@@ -17,10 +18,13 @@ body {
 <body>
 <script>
 
+var sound_beat = new Howl({src: ['./beat-wood.mp3']})
+
 var back_color = 'white'
 
 var beat_period = 300
 var beat_count = 16
+var beat_each = 4
 
 var radius = 400
 
@@ -61,10 +65,18 @@ function resize() {
 resize()
 window.addEventListener('resize', resize)
 
+var prev_beat_id
 var anim = new Konva.Animation(function(frame) {
 	var time = frame.time / beat_period
 	var beat_id = Math.floor(time % beat_count)
 	time -= Math.trunc(time)
+	
+	if (typeof(prev_beat_id) === 'undefined' || prev_beat_id != beat_id) {
+		if (beat_id % beat_each == 0) {
+			sound_beat.play()
+		}
+		prev_beat_id = beat_id
+	}
 	
 	for (var i = 0; i < beat_count; i++) {
 		if (beat_id == i) {
