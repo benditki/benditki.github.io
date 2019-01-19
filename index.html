@@ -5,27 +5,61 @@
 
 <body>
 <script>
-// Make an instance of two and place it on the page.
-var elem = document.body;
-var params = { width: 285, height: 200 };
-var two = new Two(params).appendTo(elem);
+var back_color = 'white'
+var beat_period = 100
 
-// two has convenience methods to create shapes.
-var circle = two.makeCircle(72, 100, 50);
-var rect = two.makeRectangle(213, 100, 100, 100);
+var two = new Two({ fullscreen: true }).appendTo(document.body)
 
-// The object returned has many stylable properties:
-circle.fill = '#FF8000';
-circle.stroke = 'orangered'; // Accepts all valid css color
-circle.linewidth = 5;
+two.scene.scale = Math.min(two.width, two.height) / 1000.0
+two.scene.translation.set(two.width/2.0, two.height/2.0)
 
-rect.fill = 'rgb(0, 200, 255)';
-rect.opacity = 0.75;
-rect.noStroke();
+var radius = 400
+var circle = two.makeCircle(0, 0, radius)
+circle.stroke = 'orangered'
+circle.linewidth = 2
 
-// Don't forget to tell two to render everything
-// to the screen
-two.update();
+var beat_count = 16
+var dots = []
+for (var i = 0; i < beat_count; i++) {
+	var dot = two.makeCircle(radius * Math.sin(Math.PI * 2 * i / beat_count), radius * Math.cos(Math.PI * 2 * i / beat_count), 40)
+	dot.stroke = 'orangered'
+	dot.fill = back_color
+	dot.linewidth = 4
+	dots.push(dot)
+}
+
+var elapsed = 0
+var prev_beat_id
+
+two.bind('update', (frame, delta) => {
+    if (typeof(delta) === 'undefined') {
+		elapsed = 0
+	} else {
+		elapsed += delta
+	}
+	
+	beat_id = Math.floor(elapsed / beat_period) % beat_count
+	
+	if (typeof(prev_beat_id) === 'undefined' || prev_beat_id != beat_id) {
+	
+		for (var i = 0; i < beat_count; i++) {
+			if (i == beat_id) {
+				dots[beat_id].fill = "red"
+				console.log("setting fill", dots[i], "to", dots[i].fill)
+			} else {
+				dots[beat_id].fill = back_color
+			}
+		}
+		
+		console.log(frame, delta, elapsed, beat_id, dots)
+		
+		prev_beat_id = beat_id
+    }
+})
+
+two.update()
+//two.play()
+
 </script>
 </body>
 </html>
