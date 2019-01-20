@@ -19,6 +19,7 @@ body {
 <script>
 
 var sound_beat = new Howl({src: ['./beat-wood.mp3']})
+var sound_beat_high = new Howl({src: ['./beat-wood-high.mp3']})
 
 var back_color = 'white'
 
@@ -73,7 +74,11 @@ var anim = new Konva.Animation(function(frame) {
 	
 	if (typeof(prev_beat_id) === 'undefined' || prev_beat_id != beat_id) {
 		if (beat_id % beat_each == 0) {
-			sound_beat.play()
+			if (beat_id == 0) {
+				sound_beat_high.play()
+			} else {
+				sound_beat.play()
+			}
 		}
 		prev_beat_id = beat_id
 	}
