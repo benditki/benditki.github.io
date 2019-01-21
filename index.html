@@ -6,12 +6,12 @@
 <style>
 <style>
 * {
-	margin: 0;
-	padding: 0;
+    margin: 0;
+    padding: 0;
 }
 body {
-	margin: 0;
-	overflow: hidden;
+    margin: 0;
+    overflow: hidden;
 }
 </style>
 </head>
@@ -34,23 +34,30 @@ var stage = new Konva.Stage({ container: document.body, width: 1000, height: 100
 var layer = new Konva.Layer()
 
 layer.add(new Konva.Circle({
-	x: 500, y: 500,
-	radius: radius,
-	stroke: 'orangered', strokeWidth: 1 }))
+    x: 500, y: 500,
+    radius: radius,
+    stroke: 'orangered', strokeWidth: 1
+}))
+
+var button = new Konva.Circle({
+    x: 500, y: 500,
+    radius: 100,
+    stroke: 'blue', strokeWidth: 1, fill: 'hsl(200, 100%, 89%)'
+})
+layer.add(button)
 
 var dots = []
 
-
 for (var i = 0; i < beat_count; i++) {
 
-	var angle = Math.PI * 2 * i / beat_count
-	var dot = new Konva.Circle({
-	    x: 500 + radius * Math.sin(angle), y: 500 - radius * Math.cos(angle),
-		radius: 10, fill: back_color,
-		stroke: 'orangered', strokeWidth: 2 })
+    var angle = Math.PI * 2 * i / beat_count
+    var dot = new Konva.Circle({
+        x: 500 + radius * Math.sin(angle), y: 500 - radius * Math.cos(angle),
+        radius: 10, fill: back_color,
+        stroke: 'orangered', strokeWidth: 2 })
 
     dots.push(dot)
-	layer.add(dot)
+    layer.add(dot)
 }
 
 stage.add(layer)
@@ -58,9 +65,9 @@ layer.draw()
 
 function resize() {
     var size = Math.min(window.innerWidth, window.innerHeight)
-	stage.size({ width: size, height: size })
-	stage.scale({ x: size / 1000, y: size / 1000 })
-	stage.draw()
+    stage.size({ width: size, height: size })
+    stage.scale({ x: size / 1000, y: size / 1000 })
+    stage.draw()
 }
 
 resize()
@@ -68,32 +75,42 @@ window.addEventListener('resize', resize)
 
 var prev_beat_id
 var anim = new Konva.Animation(function(frame) {
-	var time = frame.time / beat_period
-	var beat_id = Math.floor(time % beat_count)
-	time -= Math.trunc(time)
-	
-	if (typeof(prev_beat_id) === 'undefined' || prev_beat_id != beat_id) {
-		if (beat_id % beat_each == 0) {
-			if (beat_id == 0) {
-				sound_beat_high.play()
-			} else {
-				sound_beat.play()
-			}
-		}
-		prev_beat_id = beat_id
-	}
-	
-	for (var i = 0; i < beat_count; i++) {
-		if (beat_id == i) {
-			dots[i].fill('orange')
-		} else {
-			dots[i].fill(back_color)
-		}
-	}
-	
+    var time = frame.time / beat_period
+    var beat_id = Math.floor(time % beat_count)
+    time -= Math.trunc(time)
+    
+    if (typeof(prev_beat_id) === 'undefined' || prev_beat_id != beat_id) {
+        if (beat_id % beat_each == 0) {
+            if (beat_id == 0) {
+                sound_beat_high.play()
+            } else {
+                sound_beat.play()
+            }
+        }
+        prev_beat_id = beat_id
+    }
+    
+    for (var i = 0; i < beat_count; i++) {
+        if (beat_id == i) {
+            dots[i].fill('orange')
+        } else {
+            dots[i].fill(back_color)
+        }
+    }
+    
 }, layer);
 
-anim.start();
+button.on("click", () => {
+    if (anim.isRunning()) {
+        anim.stop()
+        button.fill('hsl(200, 100%, 89%)')
+        layer.draw()
+    } else {
+        anim.start()
+        anim.frame.time = 0
+        button.fill('hsl(235, 100%, 74%)')
+    }
+})
 
 </script>
 </body>
