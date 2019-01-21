@@ -100,7 +100,7 @@ var anim = new Konva.Animation(function(frame) {
     
 }, layer);
 
-button.on("click", () => {
+button.on("click tap", () => {
     if (anim.isRunning()) {
         anim.stop()
         button.fill('hsl(200, 100%, 89%)')
