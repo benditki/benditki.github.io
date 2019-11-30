@@ -61,10 +61,16 @@ var sounds = {
     'beat_high': new Howl({ src: 'beat-wood-high.mp3' }),
     'clap':      new Howl({ src: 'clap.mp3' }),
     'shake':     new Howl({ src: 'shake.mp3' }),
+    'dundunba':  new Howl({ src: 'dundunba.mp3', volume: 0.6 }),
+    'sangban':   new Howl({ src: 'sangban.mp3',  volume: 0.4 }),
+    'kenkeni':   new Howl({ src: 'kenkeni.mp3',  volume: 0.4 }),
 }
 
 var rings = [
-    new Ring("pri-beats", sounds.shake,     "x... x... x... x... x... x... x... x..."),
+    new Ring("beats",     sounds.shake,     "x... x... x... x... x... x... x... x..."),
+    new Ring("dundunba",  sounds.dundunba,  "x... .... x.x. .... x... .... x.x. ...."),
+    new Ring("sangban",   sounds.sangban,   ".... x... .... x... .... x... .... x..."),
+    new Ring("kenkeni",   sounds.kenkeni,   "..xx ..xx ..xx ..xx ..xx ..xx ..xx ..xx"),
     new Ring("main",      sounds.beat,      "..x. .x.. x..x ..x. .x.. x.xx ..x. ...."),
 ]
 
