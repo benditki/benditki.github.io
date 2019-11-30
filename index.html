@@ -2,116 +2,183 @@
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <script src="https://unpkg.com/konva@2.4.2/konva.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.1.1/howler.core.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.1.2/howler.core.min.js"></script>
 <style>
 <style>
 * {
     margin: 0;
     padding: 0;
 }
-body {
+html, body {
     margin: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
     overflow: hidden;
+    display: block;
+}
+#canvas {
+    position:absolute;
+    left:0px;
+    top:0px;
 }
 </style>
 </head>
 <body>
 <script>
 
-var sound_beat = new Howl({src: ['./beat-wood.mp3']})
-var sound_beat_high = new Howl({src: ['./beat-wood-high.mp3']})
-
-var back_color = 'white'
-
-var beat_period = 300
-var beat_count = 16
-var beat_each = 4
-
-var radius = 400
-
-
-var stage = new Konva.Stage({ container: document.body, width: 1000, height: 1000 })
-var layer = new Konva.Layer()
-
-layer.add(new Konva.Circle({
-    x: 500, y: 500,
-    radius: radius,
-    stroke: 'orangered', strokeWidth: 1
-}))
-
-var button = new Konva.Circle({
-    x: 500, y: 500,
-    radius: 100,
-    stroke: 'blue', strokeWidth: 1, fill: 'hsl(200, 100%, 89%)'
-})
-layer.add(button)
-
-var dots = []
-
-for (var i = 0; i < beat_count; i++) {
-
-    var angle = Math.PI * 2 * i / beat_count
-    var dot = new Konva.Circle({
-        x: 500 + radius * Math.sin(angle), y: 500 - radius * Math.cos(angle),
-        radius: 10, fill: back_color,
-        stroke: 'orangered', strokeWidth: 2 })
-
-    dots.push(dot)
-    layer.add(dot)
+class Dot {
+    constructor(pulse, symbol) {
+        this.pulse = pulse
+        this.symbol = symbol
+        this.played_pulse = null
+    }
+    get active() {
+        return this.symbol != '.'
+    }
 }
 
-stage.add(layer)
-layer.draw()
-
-function resize() {
-    var size = Math.min(window.innerWidth, window.innerHeight)
-    stage.size({ width: size, height: size })
-    stage.scale({ x: size / 1000, y: size / 1000 })
-    stage.draw()
+class Ring {
+    constructor(name, sound, pattern) {
+        this.name = name
+        this.sound = sound
+        this.dots = []
+        let pulse = 0
+        for (const symbol of pattern) {
+            if (symbol == ' ') continue
+            
+            this.dots.push(new Dot(pulse, symbol))
+            pulse++
+        }
+        this.period = this.dots.length
+    }
 }
 
-resize()
-window.addEventListener('resize', resize)
+var pulse_width = 150
 
-var prev_beat_id
-var anim = new Konva.Animation(function(frame) {
-    var time = frame.time / beat_period
-    var beat_id = Math.floor(time % beat_count)
-    time -= Math.trunc(time)
-    
-    if (typeof(prev_beat_id) === 'undefined' || prev_beat_id != beat_id) {
-        if (beat_id % beat_each == 0) {
-            if (beat_id == 0) {
-                sound_beat_high.play()
-            } else {
-                sound_beat.play()
+var sounds = {
+    'beat':      new Howl({ src: 'beat-wood.mp3' }),
+    'beat_high': new Howl({ src: 'beat-wood-high.mp3' }),
+    'clap':      new Howl({ src: 'clap.mp3' }),
+    'shake':     new Howl({ src: 'shake.mp3' }),
+}
+
+var rings = [
+    new Ring("pri-beats", sounds.shake,     "x... x... x... x... x... x... x... x..."),
+    new Ring("main",      sounds.beat,      "..x. .x.. x..x ..x. .x.. x.xx ..x. ...."),
+]
+
+function in_limits(x, l1, l2) {
+    return x >= l1 && x < l2
+}
+
+function update(elapsed) {
+    for (let ring of rings) {
+        const pulse = elapsed / pulse_width
+        
+        //console.log(`process elapsed=${elapsed} ring_name=${ring.name} pulse=${pulse}`)
+        
+        for (let dot of ring.dots) {
+            if (dot.active
+                && in_limits((pulse - dot.pulse) % ring.period, -0.1, 1.0)
+                && (dot.played_pulse ==  null || pulse - dot.played_pulse > ring.period - 0.1)) {
+                
+                ring.sound.play()
+                dot.played_pulse = pulse
+                
+                console.log(`playing pulse=${pulse} ring_name=${ring.name} dot=${dot.pulse}`)
             }
         }
-        prev_beat_id = beat_id
     }
+}
+
+function process(ts) {
+    if (start_ts) {
+        update(ts - start_ts)
+    }
+    draw(ts - start_ts)
+    window.requestAnimationFrame(process)
+}
+
+function on_click() {
+    if (start_ts) {
+        console.log(`stopping ts=${start_ts}`)
+        start_ts = 0;
+        for (let ring of rings) {         
+            for (let dot of ring.dots) {
+                dot.played_pulse = null
+            }
+        }
+    } else {
+        start_ts = performance.now()
+        console.log(`starting ts=${start_ts}`)
+    }
+}
+
+function draw(elapsed) {
+    const pulse = elapsed / pulse_width
     
-    for (var i = 0; i < beat_count; i++) {
-        if (beat_id == i) {
-            dots[i].fill('orange')
-        } else {
-            dots[i].fill(back_color)
+    const canvas = document.getElementById('canvas')
+    const ctx = canvas.getContext('2d')
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    ctx.strokeStyle = 'blue'
+    ctx.lineWidth = '5'
+    ctx.strokeRect(0, 0, window.innerWidth, window.innerHeight)
+    
+    let width = Math.min(canvas.width, canvas.height)
+    let radius = width * 0.45
+    for (let ring of rings) {
+        ctx.beginPath()
+        ctx.arc(canvas.width / 2, canvas.height / 2, radius, 0, 2 * Math.PI)
+        ctx.strokeStyle = 'black'
+        ctx.lineWidth = '2'
+        ctx.stroke()
+        for (let dot of ring.dots) {
+            let angle = 2 * Math.PI * dot.pulse / ring.period
+            let dot_x = canvas.width / 2 + Math.sin(angle) * radius
+            let dot_y = canvas.height / 2 - Math.cos(angle) * radius
+            let dot_size = width * 0.010
+
+            ctx.beginPath()
+            ctx.arc(dot_x, dot_y, dot_size, 0, 2 * Math.PI)
+
+            ctx.strokeStyle = 'black'
+            ctx.lineWidth = '5'
+
+            if (dot.active) {
+                ctx.fillStyle = 'black'
+                if (start_ts && in_limits((pulse - dot.pulse) % ring.period, -0.1, 0.9)) {
+                    ctx.fillStyle = 'blue'
+                    ctx.strokeStyle = 'blue'
+                }
+            } else {
+                ctx.fillStyle = 'white'
+            }
+            
+            ctx.fill()
+            ctx.stroke()
+        }
+        if (rings.length > 1) {
+            radius -= width * 0.2 / (rings.length - 1)
         }
     }
-    
-}, layer);
+}
 
-button.on("click tap", () => {
-    if (anim.isRunning()) {
-        anim.stop()
-        button.fill('hsl(200, 100%, 89%)')
-        layer.draw()
-    } else {
-        anim.start()
-        anim.frame.time = 0
-        button.fill('hsl(235, 100%, 74%)')
-    }
-})
+function resize() {
+    const canvas = document.getElementById('canvas')
+    canvas.width = window.innerWidth
+    canvas.height = window.innerHeight
+}
 
+window.requestAnimationFrame(process)
+window.addEventListener("click", on_click)
+window.addEventListener('resize', resize, false)
+document.addEventListener('DOMContentLoaded', resize)
+var start_ts = 0
+
+   
 </script>
+<canvas id=canvas>
+</canvas>
 </body>
 </html>
