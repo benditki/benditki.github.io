@@ -57,21 +57,24 @@ class Ring {
 var pulse_width = 150
 
 var sounds = {
-    'beat':      new Howl({ src: 'beat-wood.mp3' }),
-    'beat_high': new Howl({ src: 'beat-wood-high.mp3' }),
-    'clap':      new Howl({ src: 'clap.mp3' }),
-    'shake':     new Howl({ src: 'shake.mp3' }),
-    'dundunba':  new Howl({ src: 'dundunba.mp3', volume: 0.6 }),
-    'sangban':   new Howl({ src: 'sangban.mp3',  volume: 0.4 }),
-    'kenkeni':   new Howl({ src: 'kenkeni.mp3',  volume: 0.4 }),
+    'beat':         new Howl({ src: 'beat-wood.mp3' }),
+    'beat_high':    new Howl({ src: 'beat-wood-high.mp3' }),
+    'clap':         new Howl({ src: 'clap.mp3' }),
+    'shake':        new Howl({ src: 'shake.mp3',    volume: 0.5 }),
+    'dundunba':     new Howl({ src: 'dundunba.mp3', volume: 0.2 }),
+    'sangban':      new Howl({ src: 'sangban.mp3',  volume: 0.2 }),
+    'kenkeni':      new Howl({ src: 'kenkeni.mp3',  volume: 0.2 }),
+    'djembe_slap':  new Howl({ src: 'djembe-slap.mp3' }),
+    'djembe_tone':  new Howl({ src: 'djembe-tone.mp3' }),
 }
 
 var rings = [
-    new Ring("beats",     sounds.shake,     "x... x... x... x... x... x... x... x..."),
-    new Ring("dundunba",  sounds.dundunba,  "x... .... x.x. .... x... .... x.x. ...."),
-    new Ring("sangban",   sounds.sangban,   ".... x... .... x... .... x... .... x..."),
-    new Ring("kenkeni",   sounds.kenkeni,   "..xx ..xx ..xx ..xx ..xx ..xx ..xx ..xx"),
-    new Ring("main",      sounds.beat,      "..x. .x.. x..x ..x. .x.. x.xx ..x. ...."),
+    new Ring("djembe-slap", sounds.djembe_slap, "..x. .x.. x..x ..x. .x.. x.xx ..x. .xx."),
+    new Ring("djembe-tone", sounds.djembe_tone, "xx.x x.xx .xx. xx.x x.xx .... xx.x x..."),
+    new Ring("dundunba",    sounds.dundunba,    "x... .... x.x. .... x... .... x.x. ...."),
+    new Ring("sangban",     sounds.sangban,     ".... x... .... x... .... x... .... x..."),
+    new Ring("kenkeni",     sounds.kenkeni,     "..xx ..xx ..xx ..xx ..xx ..xx ..xx ..xx"),
+    new Ring("beats",       sounds.shake,       "x... x... x... x... x... x... x... x..."),
 ]
 
 function in_limits(x, l1, l2) {
@@ -92,7 +95,7 @@ function update(elapsed) {
                 ring.sound.play()
                 dot.played_pulse = pulse
                 
-                console.log(`playing pulse=${pulse} ring_name=${ring.name} dot=${dot.pulse}`)
+                //console.log(`playing pulse=${pulse} ring_name=${ring.name} dot=${dot.pulse}`)
             }
         }
     }
