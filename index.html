@@ -1,6 +1,6 @@
 <html>
 <head>
-<meta name="viewport" content="initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.1.2/howler.core.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.48.4/codemirror.min.js"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.48.4/codemirror.min.css" />
@@ -23,11 +23,15 @@ body {
 #canvas {
 }
 .CodeMirror {
-    font-size: 48pt;
+    font-size: 16px;
     border: 1px solid #eee;
     flex-grow: 1;
     height: auto;
 }
+
+.cm-s-default .cm-keyword     { color: blue; }
+.cm-s-default .cm-punctuation { color: red;  }
+.cm-s-default .cm-comment     { color: #488; }
 </style>
 </head>
 <body>
@@ -76,17 +80,43 @@ var sounds = {
 }
 
 var rings = [
-    new Ring("djembe",  { s: sounds.djembe_slap, t: sounds.djembe_tone },
-                                                "ttst tstt stts ttst\n " +
-                                                "tstt s.ss ttst tss."),
+    new Ring("shekere",     sounds.shake,       "x... x... x... x..."),
     new Ring("dundunba",    sounds.dundunba,    "x... .... x.x. ...."),
     new Ring("sangban",     sounds.sangban,     ".... x... .... x..."),
     new Ring("kenkeni",     sounds.kenkeni,     "..xx ..xx ..xx ..xx"),
-    new Ring("beats",       sounds.shake,       "x... x... x... x..."),
+    new Ring("djembe",  { s: sounds.djembe_slap, t: sounds.djembe_tone },
+                                                "ttst tstt stts ttst\n " +
+                                                "tstt s.ss ttst tss."),
 ]
 
-var myCodeMirror = CodeMirror(document.body, { value: rings.map(r => `${r.name}:\n ${r.pattern}`).join("\n") })
 var max_period = Math.max(...rings.map(r => r.period))
+
+CodeMirror.defineMode("rhythm", function() {
+    return {
+        token: function(stream) {
+            if (stream.eatSpace()) {
+                return null
+            }
+            if (stream.match("#")) {
+                stream.skipToEnd();
+                return "comment";
+            }
+            for (word of ["djembe", "dundunba", "dununba", "sangban", "kenkeni", "shekere", "clave"]) {
+                if (stream.match(word, true, true)) {
+                    return "keyword"
+                }
+            }
+            if (stream.match(":")) {
+                return "punctuation"
+            }
+            stream.eatWhile(/\S/)
+            return null;
+        }
+    }
+})
+
+var editor = CodeMirror(document.body, { mode: "rhythm", value: rings.map(r => `${r.name}:\n ${r.pattern}`).join("\n") })
+
 
 function in_limits(x, l1, l2) {
     return x >= l1 && x < l2
@@ -151,12 +181,12 @@ function draw(elapsed) {
     //ctx.strokeRect(0, 0, canvas.width, canvas.height)
     
     let width = Math.min(canvas.width, canvas.height)
-    let radius = width * 0.45
+    let radius = width * 0.25
     for (let ring of rings) {
         ctx.beginPath()
         ctx.arc(canvas.width / 2, canvas.height / 2, radius, 0, 2 * Math.PI)
         ctx.strokeStyle = 'black'
-        ctx.lineWidth = '2'
+        ctx.lineWidth = width * 0.001
         ctx.stroke()
         for (let iteration = 0; iteration < Math.floor(max_period / ring.period); iteration++) {
             for (let dot of ring.dots) {
@@ -176,7 +206,7 @@ function draw(elapsed) {
                 } else {
                     ctx.arc(dot_x, dot_y, dot_size, 0, 2 * Math.PI)
                 }
-                ctx.lineWidth = '5'
+                ctx.lineWidth = width * 0.004
                 ctx.strokeStyle = playing ? 'blue' : 'black'
                 ctx.fillStyle =   dot.active ? (playing ? 'blue' : 'black') : 'white'
                 ctx.fill()
@@ -184,7 +214,7 @@ function draw(elapsed) {
             }
         }
         if (rings.length > 1) {
-            radius -= width * 0.2 / (rings.length - 1)
+            radius += width * 0.2 / (rings.length - 1)
         }
     }
 }
