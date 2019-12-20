@@ -104,16 +104,14 @@ var sounds = {
 
 var rings = [
     new Ring("shekere",     sounds.shake,       "x... x... x... x..."),
-    new Ring("dundunba",    sounds.dundunba,    "x... .... x.x. ...."),
     new Ring("sangban",     { x: sounds.sangban, c: sounds.sangban_closed },
                                                 "c... x... c... x..."),
+    new Ring("dundunba",    sounds.dundunba,    "x... .... x.x. ...."),
     new Ring("kenkeni",     sounds.kenkeni,     "..xx ..xx ..xx ..xx"),
     new Ring("djembe",      { s: sounds.djembe_slap, t: sounds.djembe_tone },
                                                 "ttst tstt stts ttst\n " +
                                                 "tstt s.ss ttst tss."),
 ]
-
-var max_period = Math.max(...rings.map(r => r.period))
 
 CodeMirror.defineMode("rhythm", function() {
     return {
@@ -208,51 +206,61 @@ function draw(elapsed) {
     const ctx = canvas.getContext('2d')
     ctx.clearRect(0, 0, canvas.width, canvas.height)
     
-    //ctx.strokeStyle = 'blue'
-    //ctx.lineWidth = '5'
-    //ctx.strokeRect(0, 0, canvas.width, canvas.height)
-    
+    if (!rings) {
+        return
+    }
+
+    var period = rings[0].period
+    var radii_count = rings.reduce((count, ring) => count + Math.ceil(ring.period / period), 0)
+
     let width = Math.min(canvas.width, canvas.height)
     let radius = width * 0.15
     for (let ring of rings) {
-        ctx.beginPath()
-        ctx.arc(canvas.width / 2, canvas.height / 2, radius, 0, 2 * Math.PI)
-        ctx.strokeStyle = 'black'
-        ctx.lineWidth = width * 0.001
-        ctx.stroke()
-        for (let iteration = 0; iteration < Math.floor(max_period / ring.period); iteration++) {
-            for (let dot of ring.dots) {
-                let iteration_dot_pulse = dot.pulse + iteration * ring.period
-                let angle = 2 * Math.PI * iteration_dot_pulse / max_period
-                let dot_x = canvas.width / 2 + Math.sin(angle) * radius
-                let dot_y = canvas.height / 2 - Math.cos(angle) * radius
-                let dot_size = width * 0.010
-                let playing = start_ts && in_limits((pulse - iteration_dot_pulse) % max_period, -0.1, 0.9)
-                
-                ctx.beginPath()
-                if (dot.symbol == 's') {
-                    ctx.moveTo(dot_x,            dot_y - dot_size)
-                    ctx.lineTo(dot_x - dot_size, dot_y + dot_size)
-                    ctx.lineTo(dot_x + dot_size, dot_y + dot_size)
-                    ctx.closePath()
-                } else if (dot.symbol == 'c') {
-                    ctx.moveTo(dot_x - dot_size, dot_y - dot_size)
-                    ctx.lineTo(dot_x - dot_size, dot_y + dot_size)
-                    ctx.lineTo(dot_x + dot_size, dot_y + dot_size)
-                    ctx.lineTo(dot_x + dot_size, dot_y - dot_size)
-                    ctx.closePath()
-                } else {
-                    ctx.arc(dot_x, dot_y, dot_size, 0, 2 * Math.PI)
-                }
-                ctx.lineWidth = width * 0.004
-                ctx.strokeStyle = playing ? 'blue' : 'black'
-                ctx.fillStyle =   dot.active ? (playing ? 'blue' : 'black') : 'white'
-                ctx.fill()
-                ctx.stroke()
-            }
-        }
+        const part_count = Math.ceil(ring.period / period)
+        for (let part = 0; part < part_count; part++) {
+            ctx.beginPath()
+            ctx.arc(canvas.width / 2, canvas.height / 2, radius, 0, 2 * Math.PI)
+            ctx.strokeStyle = 'black'
+            ctx.lineWidth = width * 0.001
+            ctx.stroke()
+            for (let iteration = 0; iteration < Math.ceil(period / ring.period); iteration++) {
+                for (let dot of ring.dots) {
+                    let iteration_dot_pulse = dot.pulse + iteration * ring.period
+                    if (!in_limits(iteration_dot_pulse - part * period, 0, period)) {
+                        continue
+                    }
 
-        radius += width * 0.3 / Math.max(3, rings.length - 1)
+                    let angle = 2 * Math.PI * iteration_dot_pulse / period
+                    let dot_x = canvas.width / 2 + Math.sin(angle) * radius
+                    let dot_y = canvas.height / 2 - Math.cos(angle) * radius
+                    let dot_size = width * 0.015
+                    let playing = start_ts && in_limits((pulse - iteration_dot_pulse) % (part_count * period), -0.1, 0.9)
+                    
+                    ctx.beginPath()
+                    if (dot.symbol == 's') {
+                        ctx.moveTo(dot_x,            dot_y - dot_size)
+                        ctx.lineTo(dot_x - dot_size, dot_y + dot_size)
+                        ctx.lineTo(dot_x + dot_size, dot_y + dot_size)
+                        ctx.closePath()
+                    } else if (dot.symbol == 'c') {
+                        ctx.moveTo(dot_x - dot_size, dot_y - dot_size)
+                        ctx.lineTo(dot_x - dot_size, dot_y + dot_size)
+                        ctx.lineTo(dot_x + dot_size, dot_y + dot_size)
+                        ctx.lineTo(dot_x + dot_size, dot_y - dot_size)
+                        ctx.closePath()
+                    } else {
+                        ctx.arc(dot_x, dot_y, dot_size, 0, 2 * Math.PI)
+                    }
+                    ctx.lineWidth = width * 0.004
+                    ctx.strokeStyle = playing ? 'blue' : 'black'
+                    ctx.fillStyle =   dot.active ? (playing ? 'blue' : 'black') : 'white'
+                    ctx.fill()
+                    ctx.stroke()
+                }
+            }
+            
+            radius += width * 0.3 / Math.max(3, radii_count - 1)
+        }
     }
 }
 
