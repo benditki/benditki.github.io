@@ -87,7 +87,7 @@ class Ring {
     }
 }
 
-var pulse_width = 150
+var pulse_width = 120
 
 var sounds = {
     'beat':             new Howl({ src: 'beat-wood.mp3' }),
@@ -102,16 +102,57 @@ var sounds = {
     'djembe_tone':      new Howl({ src: 'djembe-tone.mp3' }),
 }
 
-var rings = [
-    new Ring("shekere",     sounds.shake,       "x... x... x... x..."),
-    new Ring("sangban",     { x: sounds.sangban, c: sounds.sangban_closed },
-                                                "c... x... c... x..."),
-    new Ring("dundunba",    sounds.dundunba,    "x... .... x.x. ...."),
-    new Ring("kenkeni",     sounds.kenkeni,     "..xx ..xx ..xx ..xx"),
-    new Ring("djembe",      { s: sounds.djembe_slap, t: sounds.djembe_tone },
-                                                "ttst tstt stts ttst\n " +
-                                                "tstt s.ss ttst tss."),
-]
+
+var instruments = {
+    'shekere':     sounds.shake,
+    'sangban':     { x: sounds.sangban, c: sounds.sangban_closed },
+    'dundunba':    sounds.dundunba,
+    'kenkeni':     sounds.kenkeni,
+    'djembe':      { s: sounds.djembe_slap, t: sounds.djembe_tone }
+}
+
+function parse_rhythm (text) {
+    let rings = []
+    let name = ""
+    let pattern = ""
+
+    function valid(name, pattern) {
+        return (name in instruments) && !/^\s*$/.test(pattern)
+    }
+
+    for (let line of text.split(/\r?\n/)) {
+        line = line.replace(/#.*/, "")
+        const res = line.match(/\s*([^\s:]+)\s*:(.*)/)
+        if (res) {
+            if (valid(name, pattern)) {
+                rings.push(new Ring(name, instruments[name], pattern))
+            }
+            name = res[1]
+            pattern = res[2]
+        } else {
+            pattern += (pattern ? "\n" : "") + line
+        }
+    }
+    if (valid(name, pattern)) {
+        rings.push(new Ring(name, instruments[name], pattern))
+    }
+    return rings
+}
+
+const text = `\
+shekere:  x... x... x... x...
+sangban:  c... x...
+dundunba: x... .... x.x. ....
+#djembe:   s..s s.tt
+djembe:  #tts. ts.. s..t .st.
+         #.s.. t.ss ..t. ..ss
+         #tts. .stt s..s ..s.
+         #.tss t.tt ..st ttss
+          ttst tstt stts ttst
+          tstt s.ss ttst tss.
+`
+
+var rings = parse_rhythm(text)
 
 CodeMirror.defineMode("rhythm", function() {
     return {
@@ -137,7 +178,7 @@ CodeMirror.defineMode("rhythm", function() {
     }
 })
 
-var editor = CodeMirror(document.getElementById("editor"), { mode: "rhythm", value: rings.map(r => `${r.name}:\n ${r.pattern}`).join("\n") })
+var editor = CodeMirror(document.getElementById("editor"), { mode: "rhythm", value: text })
 
 
 function in_limits(x, l1, l2) {
@@ -206,7 +247,7 @@ function draw(elapsed) {
     const ctx = canvas.getContext('2d')
     ctx.clearRect(0, 0, canvas.width, canvas.height)
     
-    if (!rings) {
+    if (!rings.length) {
         return
     }
 
@@ -272,11 +313,16 @@ function resize() {
     canvas.height = size
 }
 
+function on_editor_change(editor) {
+    rings = parse_rhythm(editor.getValue())
+}
+
 window.requestAnimationFrame(process)
 window.addEventListener('resize', resize, false)
 document.getElementById('canvas').addEventListener("click", on_click)
 document.addEventListener('DOMContentLoaded', resize)
 editor.on("focus", stop)
+editor.on("changes", on_editor_change)
 
 var start_ts = 0
 
