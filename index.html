@@ -139,7 +139,7 @@ function parse_rhythm (text) {
     return rings
 }
 
-const text = `\
+const text = window.localStorage.getItem("text") || `\
 shekere:  x... x... x... x...
 sangban:  c... x...
 dundunba: x... .... x.x. ....
@@ -314,7 +314,9 @@ function resize() {
 }
 
 function on_editor_change(editor) {
-    rings = parse_rhythm(editor.getValue())
+    const text = editor.getValue()
+    rings = parse_rhythm(text)
+    window.localStorage.setItem("text", text)
 }
 
 window.requestAnimationFrame(process)
