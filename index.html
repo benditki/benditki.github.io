@@ -87,7 +87,7 @@ class Ring {
     }
 }
 
-var pulse_width = 120
+var pulse_width = 150
 
 var sounds = {
     'beat':             new Howl({ src: 'beat-wood.mp3' }),
@@ -241,29 +241,24 @@ function on_click() {
 }
 
 function draw(elapsed) {
-    const pulse = elapsed / pulse_width
-    
+
     const canvas = document.getElementById('canvas')
     const ctx = canvas.getContext('2d')
     ctx.clearRect(0, 0, canvas.width, canvas.height)
-    
     if (!rings.length) {
         return
     }
 
+    const pulse = elapsed / pulse_width
     var period = rings[0].period
     var radii_count = rings.reduce((count, ring) => count + Math.ceil(ring.period / period), 0)
 
     let width = Math.min(canvas.width, canvas.height)
     let radius = width * 0.15
+    let radius_delta = width * 0.3 / Math.max(3, radii_count - 1)
     for (let ring of rings) {
         const part_count = Math.ceil(ring.period / period)
         for (let part = 0; part < part_count; part++) {
-            ctx.beginPath()
-            ctx.arc(canvas.width / 2, canvas.height / 2, radius, 0, 2 * Math.PI)
-            ctx.strokeStyle = 'black'
-            ctx.lineWidth = width * 0.001
-            ctx.stroke()
             for (let iteration = 0; iteration < Math.ceil(period / ring.period); iteration++) {
                 for (let dot of ring.dots) {
                     let iteration_dot_pulse = dot.pulse + iteration * ring.period
@@ -272,35 +267,48 @@ function draw(elapsed) {
                     }
 
                     let angle = 2 * Math.PI * iteration_dot_pulse / period
+
                     let dot_x = canvas.width / 2 + Math.sin(angle) * radius
                     let dot_y = canvas.height / 2 - Math.cos(angle) * radius
-                    let dot_size = width * 0.015
+                    let dot_size = width * 0.012
                     let playing = start_ts && in_limits((pulse - iteration_dot_pulse) % (part_count * period), -0.1, 0.9)
                     
+                    let angle_delta = 1.8 * Math.PI / period
+                    let angle0 = - 0.5 * Math.PI + angle - angle_delta / 2
+                    let angle1 = - 0.5 * Math.PI + angle + angle_delta / 2
+
                     ctx.beginPath()
-                    if (dot.symbol == 's') {
-                        ctx.moveTo(dot_x,            dot_y - dot_size)
-                        ctx.lineTo(dot_x - dot_size, dot_y + dot_size)
-                        ctx.lineTo(dot_x + dot_size, dot_y + dot_size)
-                        ctx.closePath()
-                    } else if (dot.symbol == 'c') {
-                        ctx.moveTo(dot_x - dot_size, dot_y - dot_size)
-                        ctx.lineTo(dot_x - dot_size, dot_y + dot_size)
-                        ctx.lineTo(dot_x + dot_size, dot_y + dot_size)
-                        ctx.lineTo(dot_x + dot_size, dot_y - dot_size)
-                        ctx.closePath()
-                    } else {
-                        ctx.arc(dot_x, dot_y, dot_size, 0, 2 * Math.PI)
-                    }
-                    ctx.lineWidth = width * 0.004
-                    ctx.strokeStyle = playing ? 'blue' : 'black'
-                    ctx.fillStyle =   dot.active ? (playing ? 'blue' : 'black') : 'white'
+                    ctx.arc(canvas.width / 2, canvas.height / 2, radius + 0.45 * radius_delta, angle1, angle0, true)
+                    ctx.arc(canvas.width / 2, canvas.height / 2, radius - 0.45 * radius_delta, angle0, angle1, false)
+                    ctx.closePath()
+                    ctx.fillStyle = playing && dot.active ? '#0f50b3' : '#c5d7ff'
                     ctx.fill()
-                    ctx.stroke()
+
+                    if (dot.active) {
+                        ctx.beginPath()
+                        if (dot.symbol == 's') {
+                            ctx.moveTo(dot_x,            dot_y - dot_size)
+                            ctx.lineTo(dot_x - dot_size, dot_y + dot_size)
+                            ctx.lineTo(dot_x + dot_size, dot_y + dot_size)
+                        } else if (dot.symbol == 'c') {
+                            ctx.moveTo(dot_x - dot_size, dot_y - dot_size)
+                            ctx.lineTo(dot_x - dot_size, dot_y + dot_size)
+                            ctx.lineTo(dot_x + dot_size, dot_y + dot_size)
+                            ctx.lineTo(dot_x + dot_size, dot_y - dot_size)
+                        } else {
+                            ctx.arc(dot_x, dot_y, dot_size, 0, 2 * Math.PI)
+                        }
+                        ctx.closePath()
+                        ctx.lineWidth = width * 0.012
+                        ctx.strokeStyle = "white"
+                        ctx.stroke()
+                        ctx.fillStyle = '#444'
+                        ctx.fill()
+                    }
                 }
             }
             
-            radius += width * 0.3 / Math.max(3, radii_count - 1)
+            radius += radius_delta
         }
     }
 }
