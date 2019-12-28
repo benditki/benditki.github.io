@@ -3,6 +3,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.1.2/howler.core.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.48.4/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chroma-js/2.1.0/chroma.min.js"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.48.4/codemirror.min.css" />
 <style>
 * {
@@ -47,6 +48,8 @@ body.vertical {
 .cm-s-default .cm-keyword     { color: blue; }
 .cm-s-default .cm-punctuation { color: red;  }
 .cm-s-default .cm-comment     { color: #488; }
+.cm-s-default .cm-parameter   { color: #a1a; }
+
 </style>
 </head>
 <body>
@@ -58,6 +61,8 @@ body.vertical {
 </footer>
 
 <script>
+
+var background_color = "white"
 
 class Dot {
     constructor(pulse, symbol) {
@@ -71,10 +76,12 @@ class Dot {
 }
 
 class Ring {
-    constructor(name, sound, pattern) {
+    constructor(name, instrument, pattern, opts) {
         this.name = name
-        this.sound = sound
+        this.instrument = instrument
         this.pattern = pattern
+        opts = Object.assign({ volume: 1.0 }, opts);
+        this.volume = opts.volume
         this.dots = []
         let pulse = 0
         for (const symbol of pattern) {
@@ -87,34 +94,70 @@ class Ring {
     }
 }
 
+class Sound extends Howl {
+    constructor(src, volume_factor) {
+        super({ src })
+        this.volume_factor = volume_factor === undefined ? 1.0 : volume_factor
+        this.volume_factor *= 0.5
+    }
+    play(volume) {
+        super.volume(volume * this.volume_factor)
+        super.play()
+    }
+}
+
+class Instrument {
+    constructor(sound) {
+        this.sound = sound
+    }
+    play(symbol, volume) {
+        let sound = this.sound instanceof Sound ? this.sound : this.sound[symbol]
+        sound.play(volume)
+    }
+}
+
+var palette = [
+"#1f77b4",
+"#ff7f0e",
+"#2ca02c",
+"#d62728",
+"#9467bd",
+"#8c564b",
+"#17becf",
+"#e377c2",
+"#b4b518",
+]
+
 var pulse_width = 150
 
 var sounds = {
-    'beat':             new Howl({ src: 'beat-wood.mp3' }),
-    'beat_high':        new Howl({ src: 'beat-wood-high.mp3' }),
-    'clap':             new Howl({ src: 'clap.mp3' }),
-    'shake':            new Howl({ src: 'shake.mp3',    volume: 0.5 }),
-    'dundunba':         new Howl({ src: 'dundunba.mp3', volume: 0.3 }),
-    'sangban':          new Howl({ src: 'sangban.mp3',  volume: 0.2 }),
-    'sangban_closed':   new Howl({ src: 'sangban-closed.mp3',  volume: 0.2 }),
-    'kenkeni':          new Howl({ src: 'kenkeni.mp3',  volume: 0.2 }),
-    'djembe_slap':      new Howl({ src: 'djembe-slap.mp3' }),
-    'djembe_tone':      new Howl({ src: 'djembe-tone.mp3' }),
+    'beat':             new Sound('beat-wood.mp3', 0.4),
+    'beat_high':        new Sound('beat-wood-high.mp3', 0.15),
+    'clap':             new Sound('clap.mp3'),
+    'shake':            new Sound('shake.mp3', 0.2),
+    'dundunba':         new Sound('dundunba.mp3', 0.25),
+    'sangban':          new Sound('sangban.mp3', 0.2),
+    'sangban_closed':   new Sound('sangban-closed.mp3', 0.2),
+    'kenkeni':          new Sound('kenkeni.mp3', 0.2),
+    'djembe_slap':      new Sound('djembe-slap.mp3'),
+    'djembe_tone':      new Sound('djembe-tone.mp3'),
 }
 
 
 var instruments = {
-    'shekere':     sounds.shake,
-    'sangban':     { x: sounds.sangban, c: sounds.sangban_closed },
-    'dundunba':    sounds.dundunba,
-    'kenkeni':     sounds.kenkeni,
-    'djembe':      { s: sounds.djembe_slap, t: sounds.djembe_tone }
+    'clave':       new Instrument({ x: sounds.beat, h: sounds.beat_high }),
+    'shekere':     new Instrument(sounds.shake),
+    'sangban':     new Instrument({ x: sounds.sangban, c: sounds.sangban_closed }),
+    'dundunba':    new Instrument(sounds.dundunba),
+    'kenkeni':     new Instrument(sounds.kenkeni),
+    'djembe':      new Instrument({ s: sounds.djembe_slap, t: sounds.djembe_tone })
 }
 
 function parse_rhythm (text) {
     let rings = []
     let name = ""
     let pattern = ""
+    let opts = {}
 
     function valid(name, pattern) {
         return (name in instruments) && !/^\s*$/.test(pattern)
@@ -122,19 +165,27 @@ function parse_rhythm (text) {
 
     for (let line of text.split(/\r?\n/)) {
         line = line.replace(/#.*/, "")
-        const res = line.match(/\s*([^\s:]+)\s*:(.*)/)
+        const res = line.match(/([^:\s][^:]*):(.*)/)
         if (res) {
             if (valid(name, pattern)) {
-                rings.push(new Ring(name, instruments[name], pattern))
+                rings.push(new Ring(name, instruments[name], pattern, opts))
             }
-            name = res[1]
+            tokens = res[1].split(/\s+/)
+            name = tokens[0]
             pattern = res[2]
+            opts = {}
+            for (let token of tokens) {
+                let res = token.match(/v(\d*\.?\d+)/)
+                if (res) {
+                    opts.volume = parseFloat(res[1])
+                }
+            }
         } else {
             pattern += (pattern ? "\n" : "") + line
         }
     }
     if (valid(name, pattern)) {
-        rings.push(new Ring(name, instruments[name], pattern))
+        rings.push(new Ring(name, instruments[name], pattern, opts))
     }
     return rings
 }
@@ -172,6 +223,9 @@ CodeMirror.defineMode("rhythm", function() {
             if (stream.match(":")) {
                 return "punctuation"
             }
+            if (stream.match(/v\d*\.?\d+/)) {
+                return "parameter"
+            }
             stream.eatWhile(/\S/)
             return null;
         }
@@ -192,15 +246,11 @@ function update(elapsed) {
         //console.log(`process elapsed=${elapsed} ring_name=${ring.name} pulse=${pulse}`)
         
         for (let dot of ring.dots) {
-            if (dot.active
+            if (ring.volume > 0 && dot.active
                 && in_limits((pulse - dot.pulse) % ring.period, -0.02, 1.0)
                 && (dot.played_pulse ==  null || pulse - dot.played_pulse > ring.period - 0.1)) {
                 
-                if (ring.sound instanceof Howl) {
-                    ring.sound.play()
-                } else {
-                    ring.sound[dot.symbol].play()
-                }
+                ring.instrument.play(dot.symbol, ring.volume)
                 dot.played_pulse = pulse
                 
                 //console.log(`playing pulse=${pulse} ring_name=${ring.name} dot=${dot.pulse}`)
@@ -256,7 +306,7 @@ function draw(elapsed) {
     let width = Math.min(canvas.width, canvas.height)
     let radius = width * 0.15
     let radius_delta = width * 0.3 / Math.max(3, radii_count - 1)
-    for (let ring of rings) {
+    for (const [ring_id, ring] of rings.entries()) {
         const part_count = Math.ceil(ring.period / period)
         for (let part = 0; part < part_count; part++) {
             for (let iteration = 0; iteration < Math.ceil(period / ring.period); iteration++) {
@@ -271,22 +321,28 @@ function draw(elapsed) {
                     let dot_x = canvas.width / 2 + Math.sin(angle) * radius
                     let dot_y = canvas.height / 2 - Math.cos(angle) * radius
                     let dot_size = width * 0.012
-                    let playing = start_ts && in_limits((pulse - iteration_dot_pulse) % (part_count * period), -0.1, 0.9)
+                    let playing = dot.active && start_ts && in_limits((pulse - iteration_dot_pulse) % (part_count * period), -0.1, 0.9)
                     
-                    let angle_delta = 1.8 * Math.PI / period
+                    let angle_delta = 2.0 * Math.PI / period
                     let angle0 = - 0.5 * Math.PI + angle - angle_delta / 2
                     let angle1 = - 0.5 * Math.PI + angle + angle_delta / 2
+
+                    let color = palette[ring_id % palette.length]
 
                     ctx.beginPath()
                     ctx.arc(canvas.width / 2, canvas.height / 2, radius + 0.45 * radius_delta, angle1, angle0, true)
                     ctx.arc(canvas.width / 2, canvas.height / 2, radius - 0.45 * radius_delta, angle0, angle1, false)
                     ctx.closePath()
-                    ctx.fillStyle = playing && dot.active ? '#0f50b3' : '#c5d7ff'
+                    if (ring.volume > 0) {
+                        ctx.fillStyle = playing ? chroma(color).darken().saturate() : chroma.mix("#eee", color, ring.volume/2*0.6 + 0.2)
+                    } else {
+                        ctx.fillStyle = "#ddd"
+                    }
                     ctx.fill()
 
                     if (dot.active) {
                         ctx.beginPath()
-                        if (dot.symbol == 's') {
+                        if (dot.symbol == 's' || dot.symbol == 'h') {
                             ctx.moveTo(dot_x,            dot_y - dot_size)
                             ctx.lineTo(dot_x - dot_size, dot_y + dot_size)
                             ctx.lineTo(dot_x + dot_size, dot_y + dot_size)
@@ -300,9 +356,9 @@ function draw(elapsed) {
                         }
                         ctx.closePath()
                         ctx.lineWidth = width * 0.012
-                        ctx.strokeStyle = "white"
+                        ctx.strokeStyle = background_color
                         ctx.stroke()
-                        ctx.fillStyle = '#444'
+                        ctx.fillStyle = ring.volume > 0 ? "#444" : "#888"
                         ctx.fill()
                     }
                 }
@@ -311,6 +367,17 @@ function draw(elapsed) {
             radius += radius_delta
         }
     }
+    
+    for (let i = 0; i < period; i++) {
+        let angle = 2 * Math.PI * (i + 0.5) / period
+        ctx.beginPath()
+        ctx.moveTo(canvas.width / 2, canvas.height / 2)
+        ctx.lineTo(canvas.width / 2 + Math.sin(angle) * radius, canvas.height / 2 - Math.cos(angle) * radius)
+        ctx.strokeStyle = background_color
+        ctx.lineWidth = width * 0.006
+        ctx.stroke()
+    }
+
 }
 
 function resize() {
