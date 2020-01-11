@@ -132,6 +132,16 @@ var palette = [
 
 var pulse_width = 150
 
+function update_pulse_width(width) {
+    let lines = editor.getValue().split(/\r?\n/)
+    if (/^#!/.test(lines[0])) {
+        lines[0] = lines[0].replace(/\bp\d+\b/, "p"+width)
+    } else {
+        lines.unshift("#! p" + width)
+    }
+    editor.setValue(lines.join("\n"))
+}
+
 var sounds = {
     'beat':             new Sound('beat-wood.mp3', 0.4),
     'beat_high':        new Sound('beat-wood-high.mp3', 0.15),
@@ -170,7 +180,7 @@ function parse_rhythm (text) {
         if (first && /^#!/.test(line)) {
             const tokens = line.substring(2).split(/\s+/)
             for (let token of tokens) {
-                const res = token.match(/p(\d+)/)
+                const res = token.match(/^p(\d+)$/)
                 if (res) {
                     pulse_width = parseInt(res[1])
                 }
@@ -202,6 +212,7 @@ function parse_rhythm (text) {
     }
     return rings
 }
+
 
 const text = window.localStorage.getItem("text") || `\
 shekere:  x... x... x... x...
@@ -296,6 +307,10 @@ function start() {
 }
 
 function on_click() {
+    toggle_play()
+}
+
+function toggle_play() {
     if (start_ts) {
         stop()
     } else {
@@ -391,6 +406,49 @@ function draw(elapsed) {
         ctx.stroke()
     }
 
+
+    const touch_ids = Object.keys(tracks)
+    if (touch_ids.length == 1) {
+        const track = tracks[touch_ids[0]]
+
+        ctx.beginPath()
+        let prev_point = null
+        for (const point of track.points) {
+            if (!prev_point) {
+                ctx.moveTo(point.x, point.y)
+            } else {
+                ctx.lineTo(point.x, point.y)
+            }
+            prev_point = point
+        }
+        ctx.strokeStyle = "black"
+        ctx.lineWidth = width * 0.030
+        ctx.stroke()
+
+        if ("drag" in track) {
+            ctx.beginPath()
+            ctx.moveTo(track.start.x, track.start.y)
+            if (track.drag == "x") {
+                ctx.lineTo(track.end.x, track.start.y)
+            } else {
+                ctx.lineTo(track.start.x, track.end.y)
+            }
+            ctx.strokeStyle = "blue"
+            ctx.lineWidth = width * 0.030
+            ctx.stroke()
+
+            if (track.drag == "x") {
+            } else {
+                ctx.font = 'bold 64px sans-serif'
+                ctx.fillStyle = "blue"
+                ctx.strokeStyle = background_color
+                ctx.strokeWidth = 2
+                let str = "p" + Math.floor(pulse_width - (track.end.y - track.start.y) * 0.2 )
+                ctx.strokeText(str, 50, 150)
+                ctx.fillText(str, 50, 150)
+            }
+        }
+    }
 }
 
 function resize() {
@@ -399,6 +457,8 @@ function resize() {
     document.body.className = window.innerWidth > window.innerHeight ? "vertical" : "horizontal"
     canvas.width = size
     canvas.height = size
+    canvas_rect = canvas.getBoundingClientRect()
+    reset_tracks()
 }
 
 function on_editor_change(editor) {
@@ -407,16 +467,120 @@ function on_editor_change(editor) {
     window.localStorage.setItem("text", text)
 }
 
+
+class Track {
+    constructor(start_x, start_y) {
+        this.points = [{ x: start_x, y: start_y }]
+    }
+    get start() {
+        return this.points[0]
+    }
+    get end() {
+        return this.points[this.points.length - 1]
+    }
+    add_point(x, y) {
+        this.points.push({ x: x, y: y })
+        if (!("drag" in this)) {
+            if (Math.abs(y - this.start.y) > 20) {
+                this.drag = "y"
+            } else if (Math.abs(x - this.start.x) > 20) {
+                this.drag = "x"
+            }
+        }
+    }
+}
+
+var canvas_rect = null
+var tracks
+
+function on_mousedown(e) {
+    e.preventDefault()
+    start_track("m", e.clientX, e.clientY)
+}
+
+function on_mousemove(e) {
+    e.preventDefault()
+    update_track("m", e.clientX, e.clientY)
+}
+
+function on_mouseup(e) {
+    e.preventDefault()
+    end_tracks()
+}
+
+
+function start_track(id, x, y) {
+    tracks[id] = new Track(x - canvas_rect.left, y - canvas_rect.top)
+}
+
+function update_track(id, x, y) {
+    if (id in tracks) {
+        tracks[id].add_point(x, y)
+    }
+}
+
+function reset_tracks() {
+    tracks = {}
+}
+
+function end_tracks() {
+    let touch_ids = Object.keys(tracks)
+    if (touch_ids.length == 1) {
+        let track = tracks[touch_ids[0]]
+        if ("drag" in track) {
+            update_pulse_width(Math.floor(pulse_width - (track.end.y - track.start.y) * 0.2 ))
+        } else {
+            toggle_play()
+        }
+    }
+    reset_tracks()
+}
+
+function on_touchstart(e) {
+    e.preventDefault()
+    for (let t of e.changedTouches) {
+        start_track(t.identifier, t.clientX, t.clientY)
+    }
+    if (Object.keys(tracks).length > 1) {
+        reset_tracks()
+    }
+}
+
+function on_touchmove(e) {
+    e.preventDefault()
+    for (let t of e.changedTouches) {
+        update_track(t.identifier, t.clientX - canvas_rect.left, t.clientY - canvas_rect.top)
+    }
+}
+
+function on_touchend(e) {
+    e.preventDefault()
+    end_tracks()
+}
+
+function on_touchcancel(e) {
+    if(e.cancelable) {
+        e.preventDefault()
+    }
+    reset_tracks()
+}
+
 window.requestAnimationFrame(process)
 window.addEventListener('resize', resize, false)
-document.getElementById('canvas').addEventListener("click", on_click)
+document.getElementById('canvas').addEventListener("mousedown", on_mousedown)
+document.getElementById('canvas').addEventListener("mousemove", on_mousemove)
+document.getElementById('canvas').addEventListener("mouseup", on_mouseup)
+document.getElementById('canvas').addEventListener("touchstart",  on_touchstart)
+document.getElementById('canvas').addEventListener("touchmove",   on_touchmove)
+document.getElementById('canvas').addEventListener("touchend",    on_touchend)
+document.getElementById('canvas').addEventListener("touchcancel", on_touchcancel)
 document.addEventListener('DOMContentLoaded', resize)
 editor.on("focus", stop)
 editor.on("changes", on_editor_change)
 
 var start_ts = 0
 
-   
+
 </script>
 </body>
 </html>
