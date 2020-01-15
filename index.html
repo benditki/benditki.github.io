@@ -3,8 +3,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.1.2/howler.core.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.48.4/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.48.4/addon/scroll/simplescrollbars.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/chroma-js/2.1.0/chroma.min.js"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.48.4/codemirror.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.48.4/addon/scroll/simplescrollbars.min.css" />
 <style>
 * {
     margin: 0;
@@ -34,12 +36,21 @@ body.vertical {
 }
 .CodeMirror {
     font-size: 20px;
-    border: 1px solid #eee;
-    height: auto;
 }
+
+.horizontal .CodeMirror {
+    height: calc(95vh - 100vw);
+}
+
 .horizontal footer {
     min-height: 48px;
 }
+
+.vertical .CodeMirror {
+    height: 99vh;
+    width: calc(99vw - 100vh);
+}
+
 .vertical footer {
     display: none;
 }
@@ -63,6 +74,8 @@ body.vertical {
 <script>
 
 "use strict";
+
+var canvas = document.getElementById("canvas")
 
 var background_color = "white"
 
@@ -256,7 +269,7 @@ CodeMirror.defineMode("rhythm", function() {
     }
 })
 
-var editor = CodeMirror(document.getElementById("editor"), { mode: "rhythm", value: text })
+var editor = CodeMirror(document.getElementById("editor"), { mode: "rhythm", value: text, lineNumbers: true, scrollbarStyle: "overlay" })
 
 
 function in_limits(x, l1, l2) {
@@ -287,7 +300,7 @@ function process(ts) {
     if (start_ts) {
         update(ts - start_ts)
     }
-    draw(ts - start_ts)
+    draw(ts - start_ts, ts)
     window.requestAnimationFrame(process)
 }
 
@@ -318,9 +331,8 @@ function toggle_play() {
     }
 }
 
-function draw(elapsed) {
+function draw(elapsed, now) {
 
-    const canvas = document.getElementById('canvas')
     const ctx = canvas.getContext('2d')
     ctx.clearRect(0, 0, canvas.width, canvas.height)
     if (!rings.length) {
@@ -411,19 +423,22 @@ function draw(elapsed) {
     if (touch_ids.length == 1) {
         const track = tracks[touch_ids[0]]
 
-        ctx.beginPath()
-        let prev_point = null
-        for (const point of track.points) {
-            if (!prev_point) {
-                ctx.moveTo(point.x, point.y)
-            } else {
-                ctx.lineTo(point.x, point.y)
+        if (track.points.length) {
+            ctx.lineWidth = width * 0.050
+            ctx.lineCap = "round"
+            let prev_point = track.points[0]
+            for (const point of track.points) {
+                const life = (point.ts - now + 200) / 200
+                if (life > 0) {
+                    ctx.beginPath()
+                    ctx.moveTo(prev_point.x, prev_point.y)
+                    ctx.lineTo(point.x, point.y)
+                    ctx.strokeStyle = 'rgba(0, 255, 0, ' + life + ')'
+                    ctx.stroke()
+                }
+                prev_point = point
             }
-            prev_point = point
         }
-        ctx.strokeStyle = "black"
-        ctx.lineWidth = width * 0.030
-        ctx.stroke()
 
         if ("drag" in track) {
             ctx.beginPath()
@@ -434,7 +449,7 @@ function draw(elapsed) {
                 ctx.lineTo(track.start.x, track.end.y)
             }
             ctx.strokeStyle = "blue"
-            ctx.lineWidth = width * 0.030
+            ctx.lineWidth = width * 0.020
             ctx.stroke()
 
             if (track.drag == "x") {
@@ -452,12 +467,10 @@ function draw(elapsed) {
 }
 
 function resize() {
-    const canvas = document.getElementById('canvas')
     let size = Math.min(window.innerWidth, window.innerHeight)
     document.body.className = window.innerWidth > window.innerHeight ? "vertical" : "horizontal"
     canvas.width = size
     canvas.height = size
-    canvas_rect = canvas.getBoundingClientRect()
     reset_tracks()
 }
 
@@ -469,8 +482,8 @@ function on_editor_change(editor) {
 
 
 class Track {
-    constructor(start_x, start_y) {
-        this.points = [{ x: start_x, y: start_y }]
+    constructor(start_x, start_y, ts) {
+        this.points = [{ x: start_x, y: start_y, ts: ts }]
     }
     get start() {
         return this.points[0]
@@ -478,8 +491,8 @@ class Track {
     get end() {
         return this.points[this.points.length - 1]
     }
-    add_point(x, y) {
-        this.points.push({ x: x, y: y })
+    add_point(x, y, ts) {
+        this.points.push({ x: x, y: y, ts: ts })
         if (!("drag" in this)) {
             if (Math.abs(y - this.start.y) > 20) {
                 this.drag = "y"
@@ -490,17 +503,17 @@ class Track {
     }
 }
 
-var canvas_rect = null
 var tracks
 
 function on_mousedown(e) {
     e.preventDefault()
-    start_track("m", e.clientX, e.clientY)
+    editor.getInputField().blur()
+    start_track("m", e.clientX, e.clientY, e.timeStamp)
 }
 
 function on_mousemove(e) {
     e.preventDefault()
-    update_track("m", e.clientX, e.clientY)
+    update_track("m", e.clientX, e.clientY, e.timeStamp)
 }
 
 function on_mouseup(e) {
@@ -509,13 +522,13 @@ function on_mouseup(e) {
 }
 
 
-function start_track(id, x, y) {
-    tracks[id] = new Track(x - canvas_rect.left, y - canvas_rect.top)
+function start_track(id, x, y, ts) {
+    tracks[id] = new Track(x - canvas.getBoundingClientRect().left, y - canvas.getBoundingClientRect().top, ts)
 }
 
-function update_track(id, x, y) {
+function update_track(id, x, y, ts) {
     if (id in tracks) {
-        tracks[id].add_point(x, y)
+        tracks[id].add_point(x, y, ts)
     }
 }
 
@@ -538,8 +551,9 @@ function end_tracks() {
 
 function on_touchstart(e) {
     e.preventDefault()
+    editor.getInputField().blur()
     for (let t of e.changedTouches) {
-        start_track(t.identifier, t.clientX, t.clientY)
+        start_track(t.identifier, t.clientX, t.clientY, e.timeStamp)
     }
     if (Object.keys(tracks).length > 1) {
         reset_tracks()
@@ -549,7 +563,7 @@ function on_touchstart(e) {
 function on_touchmove(e) {
     e.preventDefault()
     for (let t of e.changedTouches) {
-        update_track(t.identifier, t.clientX - canvas_rect.left, t.clientY - canvas_rect.top)
+        update_track(t.identifier, t.clientX - canvas.getBoundingClientRect().left, t.clientY - canvas.getBoundingClientRect().top, e.timeStamp)
     }
 }
 
@@ -567,13 +581,13 @@ function on_touchcancel(e) {
 
 window.requestAnimationFrame(process)
 window.addEventListener('resize', resize, false)
-document.getElementById('canvas').addEventListener("mousedown", on_mousedown)
-document.getElementById('canvas').addEventListener("mousemove", on_mousemove)
-document.getElementById('canvas').addEventListener("mouseup", on_mouseup)
-document.getElementById('canvas').addEventListener("touchstart",  on_touchstart)
-document.getElementById('canvas').addEventListener("touchmove",   on_touchmove)
-document.getElementById('canvas').addEventListener("touchend",    on_touchend)
-document.getElementById('canvas').addEventListener("touchcancel", on_touchcancel)
+canvas.addEventListener("mousedown",   on_mousedown)
+canvas.addEventListener("mousemove",   on_mousemove)
+canvas.addEventListener("mouseup",     on_mouseup)
+canvas.addEventListener("touchstart",  on_touchstart)
+canvas.addEventListener("touchmove",   on_touchmove)
+canvas.addEventListener("touchend",    on_touchend)
+canvas.addEventListener("touchcancel", on_touchcancel)
 document.addEventListener('DOMContentLoaded', resize)
 editor.on("focus", stop)
 editor.on("changes", on_editor_change)
