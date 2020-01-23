@@ -363,12 +363,10 @@ function draw(elapsed, now) {
     const pulse = elapsed / pulse_width
     const period = rings[0].period
     const radii_count = rings.reduce((count, ring) => count + Math.ceil(ring.period / period), 0)
-    const width = Math.min(canvas.width, canvas.height)
     const angle_delta = 2.0 * Math.PI / period
-    const dot_size = width * 0.012
-    const radius_delta = width * 0.3 / Math.max(3, radii_count - 1)
-    const radius0 = width * 0.15
-    const radius1 = radius0 + radii_count * radius_delta
+    const dot_size = canvas.size * 0.012
+    const radius_delta = canvas.size * 0.3 / Math.max(3, radii_count - 1)
+    const radius1 = canvas.radius0 + radii_count * radius_delta
 
     ctx.save()
     ctx.translate(canvas.width / 2, canvas.height / 2)
@@ -377,7 +375,7 @@ function draw(elapsed, now) {
 
         ctx.rotate((-0.5 + 2 * dot.pulse / period) * Math.PI)
 
-        const radius = radius0 + radius_delta * dot.radius_id
+        const radius = canvas.radius0 + radius_delta * (dot.radius_id + 0.5)
         const playing = dot.active && start_ts && in_limits((pulse - dot.pulse) % dot.period, -0.1, 0.9)
 
         ctx.beginPath()
@@ -419,7 +417,7 @@ function draw(elapsed, now) {
                 ctx.arc(0, 0, dot_size, 0, 2 * Math.PI)
             }
             ctx.closePath()
-            ctx.lineWidth = width * 0.012
+            ctx.lineWidth = canvas.size * 0.012
             ctx.strokeStyle = background_color
             ctx.stroke()
             ctx.fillStyle = dot.volume > 0 ? "#444" : "#888"
@@ -431,32 +429,68 @@ function draw(elapsed, now) {
     }
 
     ctx.strokeStyle = background_color
-    ctx.lineWidth = width * 0.006
+    ctx.lineWidth = canvas.size * 0.006
 
     for (let i = 0; i < period; i++) {
         ctx.save()
         ctx.rotate(2 * Math.PI * (i - 0.5) / period)
         ctx.beginPath()
-        ctx.moveTo(radius0 - 0.5 * radius_delta, 0)
-        ctx.lineTo(radius1 - 0.5 * radius_delta, 0)
+        ctx.moveTo(canvas.radius0, 0)
+        ctx.lineTo(radius1, 0)
         ctx.stroke()
         ctx.restore()
     }
 
-    for (let i = 0.5; i < radii_count - 1; i++) {
+    for (let i = 1; i < radii_count; i++) {
         ctx.beginPath()
-        ctx.arc(0, 0, radius0 + i * radius_delta, 0, 2 * Math.PI)
+        ctx.arc(0, 0, canvas.radius0 + i * radius_delta, 0, 2 * Math.PI)
         ctx.stroke()
+    }
+
+    const touch_ids = Object.keys(tracks)
+
+    if (touch_ids.length == 1) {
+        const track = tracks[touch_ids[0]]
+        const x = track.start.x - canvas.width / 2
+        const y = track.start.y - canvas.height / 2
+        const r = Math.sqrt(x * x + y * y)
+        const p = (Math.atan2(y, x) / (2 * Math.PI) + 0.25) * period
+
+        ctx.strokeStyle = "red"
+        ctx.lineWidth = canvas.size * 0.002
+        if (r < canvas.radius0) {
+            ctx.beginPath()
+            ctx.arc(0, 0, canvas.radius0, 0, 2 * Math.PI)
+            ctx.stroke()
+        } else {
+
+            for (const dot of dots(rings, period)) {
+                if (in_limits((r - canvas.radius0) / radius_delta - dot.radius_id, 0, 1.0) &&
+                    in_limits(diff_period(dot.pulse, p, period), -0.5, 0.5)) {
+
+                    const radius = canvas.radius0 + radius_delta * dot.radius_id
+
+                    ctx.save()
+                    ctx.rotate((-0.5 + 2 * dot.pulse / period) * Math.PI)
+                    ctx.beginPath()
+                    ctx.arc(0, 0, radius + radius_delta, + angle_delta / 2, - angle_delta / 2, true)
+                    ctx.arc(0, 0, radius               , - angle_delta / 2, + angle_delta / 2, false)
+                    ctx.closePath()
+                    ctx.stroke()
+                    ctx.restore()
+                }
+            }
+        }
     }
 
     ctx.restore()
 
-    const touch_ids = Object.keys(tracks)
+    
     if (touch_ids.length == 1) {
         const track = tracks[touch_ids[0]]
 
         if (track.points.length) {
-            ctx.lineWidth = width * 0.050
+            ctx.lineWidth = canvas.size * 0.050
             ctx.lineCap = "round"
             let prev_point = track.points[0]
             for (const point of track.points) {
@@ -473,36 +507,43 @@ function draw(elapsed, now) {
         }
 
         if ("drag" in track) {
-            ctx.beginPath()
-            ctx.moveTo(track.start.x, track.start.y)
-            if (track.drag == "x") {
-                ctx.lineTo(track.end.x, track.start.y)
-            } else {
-                ctx.lineTo(track.start.x, track.end.y)
-            }
-            ctx.strokeStyle = "blue"
-            ctx.lineWidth = width * 0.020
-            ctx.stroke()
+            const x = track.start.x - canvas.width / 2
+            const y = track.start.y - canvas.height / 2
+            const r = Math.sqrt(x * x + y * y)
 
-            if (track.drag == "x") {
-            } else {
-                ctx.font = 'bold 64px sans-serif'
-                ctx.fillStyle = "blue"
-                ctx.strokeStyle = background_color
-                ctx.strokeWidth = 2
-                let str = "p" + Math.floor(pulse_width - (track.end.y - track.start.y) * 0.2 )
-                ctx.strokeText(str, 50, 150)
-                ctx.fillText(str, 50, 150)
+            if (r < canvas.radius0) {
+                ctx.beginPath()
+                ctx.moveTo(track.start.x, track.start.y)
+                if (track.drag == "x") {
+                    ctx.lineTo(track.end.x, track.start.y)
+                } else {
+                    ctx.lineTo(track.start.x, track.end.y)
+                }
+                ctx.strokeStyle = "blue"
+                ctx.lineWidth = canvas.size * 0.020
+                ctx.stroke()
+
+                if (track.drag == "x") {
+                } else {
+                    ctx.font = 'bold 64px sans-serif'
+                    ctx.fillStyle = "blue"
+                    ctx.strokeStyle = background_color
+                    ctx.strokeWidth = 2
+                    let str = "p" + Math.floor(pulse_width - (track.end.y - track.start.y) * 0.2 )
+                    ctx.strokeText(str, 50, 150)
+                    ctx.fillText(str, 50, 150)
+                }
             }
         }
     }
 }
 
 function resize() {
-    let size = Math.min(window.innerWidth, window.innerHeight)
+    canvas.size = Math.min(window.innerWidth, window.innerHeight)
     document.body.className = window.innerWidth > window.innerHeight ? "vertical" : "horizontal"
-    canvas.width = size
-    canvas.height = size
+    canvas.width = canvas.size
+    canvas.height = canvas.size
+    canvas.radius0 = canvas.size * 0.10
     reset_tracks()
 }
 
@@ -543,6 +584,17 @@ function on_mousedown(e) {
     start_track("m", e.clientX, e.clientY, e.timeStamp)
 }
 
+function diff_period(x1, x2, period) {
+    const d = (x2 - x1) % period
+    if (d < -0.5 * period) {
+        return d + period
+    } else if (d > 0.5 * period) {
+        return d - period
+    } else {
+        return d
+    }
+}
+
 function on_mousemove(e) {
     e.preventDefault()
     update_track("m", e.clientX, e.clientY, e.timeStamp)
@@ -572,12 +624,18 @@ function end_tracks() {
     let touch_ids = Object.keys(tracks)
     if (touch_ids.length == 1) {
         let track = tracks[touch_ids[0]]
-        if ("drag" in track) {
-            if(track.drag == "y") {
-                update_pulse_width(Math.floor(pulse_width - (track.end.y - track.start.y) * 0.2 ))
+        const x = track.start.x - canvas.width / 2
+        const y = track.start.y - canvas.height / 2
+        const r = Math.sqrt(x * x + y * y)
+
+        if (r < canvas.radius0) {
+            if ("drag" in track) {
+                if(track.drag == "y") {
+                    update_pulse_width(Math.floor(pulse_width - (track.end.y - track.start.y) * 0.2 ))
+                }
+            } else {
+                    toggle_play()
             }
-        } else {
-            toggle_play()
         }
     }
     reset_tracks()
