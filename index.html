@@ -86,26 +86,39 @@ class Dot {
         this.played_pulse = null
     }
     get active() {
-        return this.symbol != '.'
+        return this.symbol.value != '.'
+    }
+
+    update_symbol(symbol) {
+        editor.setValue(this.symbol.calc_text(symbol))
     }
 }
 
 class Ring {
-    constructor(name, instrument, pattern, opts) {
+    constructor(name, instrument, symbols, opts) {
         this.name = name
         this.instrument = instrument
-        this.pattern = pattern
-        opts = Object.assign({ volume: 1.0 }, opts);
+        opts = Object.assign({ volume: { value: 1.0 } }, opts);
         this.volume = opts.volume
         this.dots = []
         let pulse = 0
-        for (const symbol of pattern) {
-            if (/\s/.test(symbol)) continue
-            
+        for (const symbol of symbols) {
             this.dots.push(new Dot(pulse, symbol))
             pulse++
         }
         this.period = this.dots.length
+    }
+
+    update_volume(volume) {
+        if ("text" in this.volume) {
+            editor.setValue(this.volume.calc_text(volume))
+        } else {
+            editor.setValue(this.name.text.slice(0, this.name.pos + this.name.length) + " v" + volume + (this.name.text.slice(this.name.pos + this.name.length)))
+        }
+    }
+
+    update_name(name) {
+        editor.setValue(this.name.calc_text(name))
     }
 }
 
@@ -124,10 +137,34 @@ class Sound extends Howl {
 class Instrument {
     constructor(sound) {
         this.sound = sound
+        if (this.sound instanceof Sound) {
+            this.symbols = ["x"]
+        } else {
+            this.symbols = Object.keys(this.sound)
+        }
     }
+
     play(symbol, volume) {
         let sound = this.sound instanceof Sound ? this.sound : this.sound[symbol]
         sound.play(volume)
+    }
+
+    next_symbol(symbol) {
+        const symbol_id = this.symbols.indexOf(symbol)
+        return symbol_id == this.symbols.length - 1 ? "." : this.symbols[symbol_id + 1]
+    }
+}
+
+class Parsed {
+    constructor(text, pos, length, value) {
+        this.text = text
+        this.pos = pos
+        this.length = length
+        this.value = value
+    }
+
+    calc_text(new_value) {
+        return this.text.slice(0, this.pos) + new_value + this.text.slice(this.pos + this.length)
     }
 }
 
@@ -143,16 +180,17 @@ var palette = [
 "#b4b518",
 ]
 
-var pulse_width = 150
+var pulse_width = { value: 150 }
 
 function update_pulse_width(width) {
-    let lines = editor.getValue().split(/\r?\n/)
-    if (/^#!/.test(lines[0])) {
-        lines[0] = lines[0].replace(/\bp\d+\b/, "p"+width)
+    if ("text" in pulse_width) {
+        editor.setValue(pulse_width.calc_text(width))
     } else {
-        lines.unshift("#! p" + width)
+        const text = editor.getValue()
+        const line = text.split(/(\r?\n)/, 1)[0]
+        let pos = /^#!/.test(line) ? 2 : 0
+        editor.setValue("#! p" + width + (pos == 0 ? "\n" : line.length == 2 || /\s+/.test(line[2]) ? "" : " ") + text.slice(pos))
     }
-    editor.setValue(lines.join("\n"))
 }
 
 var sounds = {
@@ -180,50 +218,91 @@ var instruments = {
     'djembe':      new Instrument({ s: sounds.djembe_slap, t: sounds.djembe_tone, b: sounds.djembe_base })
 }
 
+function split_tokens(text, sep_re) {
+    const splits = text.split(sep_re)
+    const res = []
+    for (let i = 0, pos = 0, index = 0; i < splits.length; i += 2) {
+        const content = splits[i]
+        const sep = i + 1 < splits.length ? splits[i + 1] : ""
+        res.push({ text, index, pos, content, sep })
+        pos += content.length + sep.length
+        index++
+    }
+    return res
+}
+
+function split_lines(text) {
+    return split_tokens(text, /(\r?\n)/)
+}
+
+function split_words(text) {
+    return split_tokens(text, /(\s+)/)
+}
+
+function split_chars(text) {
+    let pos = 0
+    const res = []
+    for(const content of text.split("")) {
+        res.push({ text, index: pos, pos, content, sep: "" })
+        pos++
+    }
+    return res
+}
+
 function parse_rhythm (text) {
     let rings = []
     let name = ""
-    let pattern = ""
+    let symbols = []
     let opts = {}
+    
+    pulse_width = { value: pulse_width.value }
 
-    function valid(name, pattern) {
-        return (name in instruments) && !/^\s*$/.test(pattern)
+    function valid(name, symbols) {
+        return (name.value in instruments) && symbols.length
     }
 
-    let first = true
-    for (let line of text.split(/\r?\n/)) {
-        if (first && /^#!/.test(line)) {
-            const tokens = line.substring(2).split(/\s+/)
-            for (let token of tokens) {
-                const res = token.match(/^p(\d+)$/)
-                if (res) {
-                    pulse_width = parseInt(res[1])
-                }
+    function to_symbols(pos, pattern) {
+        let symbols = []
+        for (let c of split_chars(pattern)) {
+            if (!/\s+/.test(c.content)) {
+                symbols.push(new Parsed(text, pos + c.pos, c.content.length, c.content))
             }
         }
-        first = false
-        line = line.replace(/#.*/, "")
-        const res = line.match(/([^:\s][^:]*):(.*)/)
-        if (res) {
-            if (valid(name, pattern)) {
-                rings.push(new Ring(name, instruments[name], pattern, opts))
-            }
-            const tokens = res[1].split(/\s+/)
-            name = tokens[0]
-            pattern = res[2]
-            opts = {}
-            for (let token of tokens) {
-                const res = token.match(/v(\d*\.?\d+)/)
+        return symbols
+    }
+
+    for (let line of split_lines(text)) {
+        if (line.index == 0 && /^#!/.test(line.content)) {
+            for (let token of split_words(line.content.substring(2))) {
+                const res = token.content.match(/^p(\d+)$/)
                 if (res) {
-                    opts.volume = parseFloat(res[1])
+                    pulse_width = new Parsed(text, line.pos + token.pos + 3, res[1].length, parseInt(res[1]))
                 }
             }
         } else {
-            pattern += (pattern ? "\n" : "") + line
+            const cleaned = line.content.replace(/#.*/, "")
+            const res = cleaned.match(/([^:\s][^:]*):(.*)/)
+            if (res) {
+                if (valid(name, symbols)) {
+                    rings.push(new Ring(name, instruments[name.value], symbols, opts))
+                }
+                const tokens = split_words(res[1])
+                name = new Parsed(text, line.pos + tokens[0].pos, tokens[0].content.length, tokens[0].content)
+                symbols = to_symbols(line.pos + res[1].length + 1, res[2])
+                opts = {}
+                for (let token of tokens.slice(1)) {
+                    const res = token.content.match(/v(\d*\.?\d+)/)
+                    if (res) {
+                        opts.volume = new Parsed(text, line.pos + token.pos + 1, res[1].length, parseFloat(res[1]))
+                    }
+                }
+            } else {
+                symbols = symbols.concat(to_symbols(line.pos, cleaned))
+            }
         }
     }
-    if (valid(name, pattern)) {
-        rings.push(new Ring(name, instruments[name], pattern, opts))
+    if (valid(name, symbols)) {
+        rings.push(new Ring(name, instruments[name.value], symbols, opts))
     }
     return rings
 }
@@ -271,25 +350,29 @@ CodeMirror.defineMode("rhythm", function() {
     }
 })
 
-var editor = CodeMirror(document.getElementById("editor"), { mode: "rhythm", value: text, lineNumbers: true, scrollbarStyle: "overlay" })
+var editor = CodeMirror(document.getElementById("editor"), { mode: "rhythm", value: text, scrollbarStyle: "overlay" })
 
 
 function in_limits(x, l1, l2) {
     return x >= l1 && x < l2
 }
 
+function clamp(x, min, max) {
+    return Math.min(Math.max(x, min), max)
+};
+
 function update(elapsed) {
     for (let ring of rings) {
-        const pulse = elapsed / pulse_width
+        const pulse = elapsed / pulse_width.value
         
         //console.log(`process elapsed=${elapsed} ring_name=${ring.name} pulse=${pulse}`)
         
         for (let dot of ring.dots) {
-            if (ring.volume > 0 && dot.active
+            if (ring.volume.value > 0 && dot.active
                 && in_limits((pulse - dot.pulse) % ring.period, -0.02, 1.0)
                 && (dot.played_pulse ==  null || pulse - dot.played_pulse > ring.period - 0.1)) {
                 
-                ring.instrument.play(dot.symbol, ring.volume)
+                ring.instrument.play(dot.symbol.value, ring.volume.value)
                 dot.played_pulse = pulse
                 
                 //console.log(`playing pulse=${pulse} ring_name=${ring.name} dot=${dot.pulse}`)
@@ -344,7 +427,7 @@ function* dots(rings, period) {
                     if (!in_limits(iteration_dot_pulse - part * period, 0, period)) {
                         continue
                     }
-                    yield { volume: ring.volume, ring_id, radius_id, symbol: dot.symbol, period: part_count * period, pulse: iteration_dot_pulse, active: dot.active }
+                    yield { volume: ring.volume.value, ring_id, period: part_count * period, part_id: part, radius_id, symbol: dot.symbol.value, pulse: iteration_dot_pulse, active: dot.active, orig: dot }
                 }
             }
             radius_id++;
@@ -360,12 +443,12 @@ function draw(elapsed, now) {
         return
     }
 
-    const pulse = elapsed / pulse_width
+    const pulse = elapsed / pulse_width.value
     const period = rings[0].period
     const radii_count = rings.reduce((count, ring) => count + Math.ceil(ring.period / period), 0)
     const angle_delta = 2.0 * Math.PI / period
     const dot_size = canvas.size * 0.012
-    const radius_delta = canvas.size * 0.3 / Math.max(3, radii_count - 1)
+    const radius_delta = canvas.size * 0.3 / Math.max(3, radii_count)
     const radius1 = canvas.radius0 + radii_count * radius_delta
 
     ctx.save()
@@ -441,7 +524,7 @@ function draw(elapsed, now) {
         ctx.restore()
     }
 
-    for (let i = 1; i < radii_count; i++) {
+    for (let i = 0; i < radii_count + 1; i++) {
         ctx.beginPath()
         ctx.arc(0, 0, canvas.radius0 + i * radius_delta, 0, 2 * Math.PI)
         ctx.stroke()
@@ -511,27 +594,43 @@ function draw(elapsed, now) {
             const y = track.start.y - canvas.height / 2
             const r = Math.sqrt(x * x + y * y)
 
-            if (r < canvas.radius0) {
-                ctx.beginPath()
-                ctx.moveTo(track.start.x, track.start.y)
-                if (track.drag == "x") {
-                    ctx.lineTo(track.end.x, track.start.y)
-                } else {
-                    ctx.lineTo(track.start.x, track.end.y)
-                }
-                ctx.strokeStyle = "blue"
-                ctx.lineWidth = canvas.size * 0.020
-                ctx.stroke()
+            ctx.beginPath()
+            ctx.moveTo(track.start.x, track.start.y)
+            if (track.drag == "x") {
+                ctx.lineTo(track.end.x, track.start.y)
+            } else {
+                ctx.lineTo(track.start.x, track.end.y)
+            }
+            ctx.strokeStyle = "blue"
+            ctx.lineWidth = canvas.size * 0.020
+            ctx.stroke()
 
-                if (track.drag == "x") {
-                } else {
+            if (r < canvas.radius0) {
+                if (track.drag == "y") {
                     ctx.font = 'bold 64px sans-serif'
                     ctx.fillStyle = "blue"
                     ctx.strokeStyle = background_color
-                    ctx.strokeWidth = 2
-                    let str = "p" + Math.floor(pulse_width - (track.end.y - track.start.y) * 0.2 )
-                    ctx.strokeText(str, 50, 150)
-                    ctx.fillText(str, 50, 150)
+                    ctx.lineWidth = 5
+                    let str = "p" + clamp(Math.floor(pulse_width.value - (track.end.y - track.start.y) * 0.2), 50, 1000)
+                    ctx.strokeText(str, 8, 72)
+                    ctx.fillText(str, 8, 72)
+                }
+            } else {
+                for (const dot of dots(rings, period)) {
+                    if (in_limits((r - canvas.radius0) / radius_delta - dot.radius_id, 0, 1.0)) {
+                        if (track.drag == "y") {
+                            const ring = rings[dot.ring_id]
+                            ctx.font = 'bold 64px sans-serif'
+                            const volume = clamp((ring.volume.value - (track.end.y - track.start.y) * canvas.size * 0.00002).toFixed(1), 0.0, 2.0)
+                            const str = "v" + volume
+                            ctx.fillStyle = "green"
+                            ctx.strokeStyle = background_color
+                            ctx.lineWidth = 5
+                            ctx.strokeText(str, 8, 72)
+                            ctx.fillText(str, 8, 72)
+                        }
+                        break
+                    }
                 }
             }
         }
@@ -539,12 +638,12 @@ function draw(elapsed, now) {
 }
 
 function resize() {
+    reset_tracks()
     canvas.size = Math.min(window.innerWidth, window.innerHeight)
     document.body.className = window.innerWidth > window.innerHeight ? "vertical" : "horizontal"
     canvas.width = canvas.size
     canvas.height = canvas.size
     canvas.radius0 = canvas.size * 0.10
-    reset_tracks()
 }
 
 function on_editor_change(editor) {
@@ -631,10 +730,28 @@ function end_tracks() {
         if (r < canvas.radius0) {
             if ("drag" in track) {
                 if(track.drag == "y") {
-                    update_pulse_width(Math.floor(pulse_width - (track.end.y - track.start.y) * 0.2 ))
+                    update_pulse_width(clamp(Math.floor(pulse_width.value - (track.end.y - track.start.y) * 0.2 ), 50, 1000))
                 }
             } else {
                     toggle_play()
+            }
+        } else {
+            const period = rings[0].period
+            const radii_count = rings.reduce((count, ring) => count + Math.ceil(ring.period / period), 0)
+            const radius_delta = canvas.size * 0.3 / Math.max(3, radii_count)
+            const p = (Math.atan2(y, x) / (2 * Math.PI) + 0.25) * period
+            for (const dot of dots(rings, period)) {
+                if (in_limits((r - canvas.radius0) / radius_delta - dot.radius_id, 0, 1.0) &&
+                    in_limits(diff_period(dot.pulse, p, period), -0.5, 0.5)) {
+
+                    const ring = rings[dot.ring_id]
+                    if ("drag" in track) {
+                        ring.update_volume(clamp((ring.volume.value - (track.end.y - track.start.y) * canvas.size * 0.00002).toFixed(1), 0.0, 2.0))
+                    } else {
+                        dot.orig.update_symbol(ring.instrument.next_symbol(dot.symbol))
+                    }
+                    break
+                }
             }
         }
     }
