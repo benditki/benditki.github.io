@@ -448,7 +448,7 @@ function draw(elapsed, now) {
     const radii_count = rings.reduce((count, ring) => count + Math.ceil(ring.period / period), 0)
     const angle_delta = 2.0 * Math.PI / period
     const dot_size = canvas.size * 0.012
-    const radius_delta = canvas.size * 0.3 / Math.max(3, radii_count)
+    const radius_delta = canvas.size * 0.38 / Math.max(3, radii_count)
     const radius1 = canvas.radius0 + radii_count * radius_delta
 
     ctx.save()
@@ -738,7 +738,7 @@ function end_tracks() {
         } else {
             const period = rings[0].period
             const radii_count = rings.reduce((count, ring) => count + Math.ceil(ring.period / period), 0)
-            const radius_delta = canvas.size * 0.3 / Math.max(3, radii_count)
+            const radius_delta = canvas.size * 0.38 / Math.max(3, radii_count)
             const p = (Math.atan2(y, x) / (2 * Math.PI) + 0.25) * period
             for (const dot of dots(rings, period)) {
                 if (in_limits((r - canvas.radius0) / radius_delta - dot.radius_id, 0, 1.0) &&
@@ -746,7 +746,9 @@ function end_tracks() {
 
                     const ring = rings[dot.ring_id]
                     if ("drag" in track) {
-                        ring.update_volume(clamp((ring.volume.value - (track.end.y - track.start.y) * canvas.size * 0.00002).toFixed(1), 0.0, 2.0))
+                        if (track.drag == "y") {
+                            ring.update_volume(clamp((ring.volume.value - (track.end.y - track.start.y) * canvas.size * 0.00002).toFixed(1), 0.0, 2.0))
+                        }
                     } else {
                         dot.orig.update_symbol(ring.instrument.next_symbol(dot.symbol))
                     }
