@@ -658,7 +658,7 @@ function draw(pulse, now) {
                     ctx.fillStyle = "blue"
                     ctx.strokeStyle = background_color
                     ctx.lineWidth = 5
-                    let str = "f" + clamp((freq.value - (track.end.y - track.start.y) * canvas.size * 0.0002).toFixed(1), 1, 20)
+                    let str = "f" + clamp((freq.value - (track.end.y - track.start.y) * canvas.size * 0.00002).toFixed(1), 1, 20)
                     ctx.strokeText(str, 8, 72)
                     ctx.fillText(str, 8, 72)
                 }
@@ -785,7 +785,7 @@ function end_tracks() {
         if (r < canvas.radius0) {
             if ("drag" in track) {
                 if(track.drag == "y") {
-                    update_freq(clamp((freq.value - (track.end.y - track.start.y) * canvas.size * 0.0002).toFixed(1), 1, 20))
+                    update_freq(clamp((freq.value - (track.end.y - track.start.y) * canvas.size * 0.00002).toFixed(1), 1, 20))
                 }
             } else {
                     toggle_play()
