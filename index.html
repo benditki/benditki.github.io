@@ -22,6 +22,7 @@ html, body {
 }
 body {
     display: flex;
+    align-items: center;
 }
 body.horizontal {
     flex-direction: column;
@@ -31,6 +32,7 @@ body.vertical {
 }
 #editor {
     flex-grow: 1;
+    align-self: stretch;
 }
 #canvas {
 }
@@ -38,23 +40,12 @@ body.vertical {
     font-size: 20px;
 }
 
-.horizontal .CodeMirror {
-    height: calc(95vh - 100vw);
+.CodeMirror {
+    min-height: 100%;
+    max-height: 100%;
+    min-width: 100%;
+    max-width: 100%;
 }
-
-.horizontal footer {
-    min-height: 48px;
-}
-
-.vertical .CodeMirror {
-    height: 99vh;
-    width: calc(99vw - 100vh);
-}
-
-.vertical footer {
-    display: none;
-}
-
 
 .cm-s-default .cm-keyword     { color: blue; }
 .cm-s-default .cm-punctuation { color: red;  }
@@ -68,8 +59,6 @@ body.vertical {
 </canvas>
 <div id=editor>
 </div>
-<footer>
-</footer>
 
 <script>
 
@@ -180,16 +169,30 @@ var palette = [
 "#b4b518",
 ]
 
-var pulse_width = { value: 150 }
+var freq = { value: 7.0 }
 
-function update_pulse_width(width) {
-    if ("text" in pulse_width) {
-        editor.setValue(pulse_width.calc_text(width))
+function update_freq(new_freq) {
+    if (start_ts) {
+        const ts = performance.now()
+        pulse_counter += (ts - start_ts) * freq.value / 1000
+        start_ts = ts
+
+        /***/
+        console.log(`new freq=${new_freq} ts=${ts.toFixed(2)} pulse=${pulse_counter.toFixed(2)}`)
+        /***/
+    } else {
+        /***/
+        console.log(`new freq=${new_freq}`)
+        /***/
+    }
+
+    if ("text" in freq) {
+        editor.setValue(freq.calc_text(new_freq))
     } else {
         const text = editor.getValue()
         const line = text.split(/(\r?\n)/, 1)[0]
-        let pos = /^#!/.test(line) ? 2 : 0
-        editor.setValue("#! p" + width + (pos == 0 ? "\n" : line.length == 2 || /\s+/.test(line[2]) ? "" : " ") + text.slice(pos))
+        const pos = /^#!/.test(line) ? 2 : 0
+        editor.setValue("#! f" + new_freq + (pos == 0 ? "\n" : line.length == 2 || /\s+/.test(line[2]) ? "" : " ") + text.slice(pos))
     }
 }
 
@@ -255,7 +258,7 @@ function parse_rhythm (text) {
     let symbols = []
     let opts = {}
     
-    pulse_width = { value: pulse_width.value }
+    freq = { value: freq.value }
 
     function valid(name, symbols) {
         return (name.value in instruments) && symbols.length
@@ -274,9 +277,9 @@ function parse_rhythm (text) {
     for (let line of split_lines(text)) {
         if (line.index == 0 && /^#!/.test(line.content)) {
             for (let token of split_words(line.content.substring(2))) {
-                const res = token.content.match(/^p(\d+)$/)
+                const res = token.content.match(/^f(\d*\.?\d+)$/)
                 if (res) {
-                    pulse_width = new Parsed(text, line.pos + token.pos + 3, res[1].length, parseInt(res[1]))
+                    freq = new Parsed(text, line.pos + token.pos + 3, res[1].length, parseFloat(res[1]))
                 }
             }
         } else {
@@ -361,37 +364,61 @@ function clamp(x, min, max) {
     return Math.min(Math.max(x, min), max)
 };
 
-function update(elapsed) {
+function update(now, elapsed, pulse) {
+
+    /***
+    let played = false
+    let report = (`${now.toFixed(2)}`).padEnd(16, ' ') + (`${elapsed.toFixed(2)}`).padEnd(8, ' ') + (`${pulse.toFixed(2)}:`).padStart(8, ' ')
+    /***/
+
     for (let ring of rings) {
-        const pulse = elapsed / pulse_width.value
-        
-        //console.log(`process elapsed=${elapsed} ring_name=${ring.name} pulse=${pulse}`)
-        
+        let ring_reported = false
         for (let dot of ring.dots) {
             if (ring.volume.value > 0 && dot.active
-                && in_limits((pulse - dot.pulse) % ring.period, -0.02, 1.0)
+                && in_limits((pulse - dot.pulse) % ring.period, -0.05, 0.2)
                 && (dot.played_pulse ==  null || pulse - dot.played_pulse > ring.period - 0.1)) {
-                
+
+                /***
+                played = true
+                ring_reported = true
+                const ring_report = `${ring.name.value}-${dot.pulse}:`.padEnd(12, ' ') + `${((pulse - dot.pulse) % ring.period).toFixed(2)}`.padStart(5, ' ') + "[" + `${(dot.played_pulse ==  null ? "---" : (pulse - dot.played_pulse - ring.period).toFixed(2))}`.padStart(5, ' ') + "]"
+                report += ring_report.padEnd(28, ' ')
+                /***/
+
                 ring.instrument.play(dot.symbol.value, ring.volume.value)
                 dot.played_pulse = pulse
-                
-                //console.log(`playing pulse=${pulse} ring_name=${ring.name} dot=${dot.pulse}`)
             }
         }
+
+        /***
+        if (!ring_reported) {
+            report += "".padEnd(28, ' ')
+        }
+        /***/
     }
+
+    /***
+    if (played) {
+        console.log(report)
+    }
+    /***/
 }
 
 function process(ts) {
+    const elapsed = ts - start_ts
+    const pulse = pulse_counter + elapsed * freq.value / 1000
+
     if (start_ts) {
-        update(ts - start_ts)
+        update(ts, elapsed, pulse)
     }
-    draw(ts - start_ts, ts)
+    draw(start_ts ? pulse : pulse_counter, ts)
     window.requestAnimationFrame(process)
 }
 
 function stop() {
-    console.log(`stopping ts=${start_ts}`)
+    console.log(`stopping ts=${performance.now().toFixed(2)}`)
     start_ts = 0;
+    pulse_counter = 0
     for (let ring of rings) {
         for (let dot of ring.dots) {
             dot.played_pulse = null
@@ -400,12 +427,15 @@ function stop() {
 }
 
 function start() {
-    start_ts = performance.now() + 50.0
-    console.log(`starting ts=${start_ts}`)
+    start_ts = performance.now() + 10.0
+    console.log(`starting ts=${start_ts.toFixed(2)}`)
 }
 
-function on_click() {
-    toggle_play()
+function pause() {
+    const ts = performance.now()
+    pulse_counter += (ts - start_ts) * freq.value / 1000
+    console.log(`pause ts=${ts.toFixed(2)} pulse=${pulse_counter.toFixed(2)}`)
+    start_ts = 0;
 }
 
 function toggle_play() {
@@ -435,7 +465,7 @@ function* dots(rings, period) {
     }
 }
 
-function draw(elapsed, now) {
+function draw(pulse, now) {
 
     const ctx = canvas.getContext('2d')
     ctx.clearRect(0, 0, canvas.width, canvas.height)
@@ -443,7 +473,6 @@ function draw(elapsed, now) {
         return
     }
 
-    const pulse = elapsed / pulse_width.value
     const period = rings[0].period
     const radii_count = rings.reduce((count, ring) => count + Math.ceil(ring.period / period), 0)
     const angle_delta = 2.0 * Math.PI / period
@@ -459,7 +488,7 @@ function draw(elapsed, now) {
         ctx.rotate((-0.5 + 2 * dot.pulse / period) * Math.PI)
 
         const radius = canvas.radius0 + radius_delta * (dot.radius_id + 0.5)
-        const playing = dot.active && start_ts && in_limits((pulse - dot.pulse) % dot.period, -0.1, 0.9)
+        const playing = dot.active && (start_ts || pulse_counter) && in_limits((pulse - dot.pulse) % dot.period, -0.1, 0.9)
 
         ctx.beginPath()
         ctx.arc(0, 0, radius + 0.5 * radius_delta, + angle_delta / 2, - angle_delta / 2, true)
@@ -529,6 +558,24 @@ function draw(elapsed, now) {
         ctx.arc(0, 0, canvas.radius0 + i * radius_delta, 0, 2 * Math.PI)
         ctx.stroke()
     }
+
+    const shape_size = canvas.radius0 * 0.4
+    ctx.beginPath()
+    if (start_ts) {
+        ctx.moveTo(0 - shape_size, 0 - shape_size)
+        ctx.lineTo(0 - shape_size, 0 + shape_size)
+        ctx.lineTo(0 + shape_size, 0 + shape_size)
+        ctx.lineTo(0 + shape_size, 0 - shape_size)
+    } else {
+        ctx.moveTo(0 - 0.7 * shape_size, 0 - 1.2 * shape_size)
+        ctx.lineTo(0 - 0.7 * shape_size, 0 + 1.2 * shape_size)
+        ctx.lineTo(0 + 1.3 * shape_size, 0)
+    }
+    ctx.closePath()
+    ctx.lineJoin = "round"
+    ctx.lineWidth = canvas.size * 0.015
+    ctx.strokeStyle = "#469"
+    ctx.stroke()
 
     const touch_ids = Object.keys(tracks)
 
@@ -611,7 +658,7 @@ function draw(elapsed, now) {
                     ctx.fillStyle = "blue"
                     ctx.strokeStyle = background_color
                     ctx.lineWidth = 5
-                    let str = "p" + clamp(Math.floor(pulse_width.value - (track.end.y - track.start.y) * 0.2), 50, 1000)
+                    let str = "f" + clamp((freq.value - (track.end.y - track.start.y) * canvas.size * 0.0002).toFixed(1), 1, 20)
                     ctx.strokeText(str, 8, 72)
                     ctx.fillText(str, 8, 72)
                 }
@@ -640,7 +687,11 @@ function draw(elapsed, now) {
 function resize() {
     reset_tracks()
     canvas.size = Math.min(window.innerWidth, window.innerHeight)
-    document.body.className = window.innerWidth > window.innerHeight ? "vertical" : "horizontal"
+    const vertical = window.innerWidth > window.innerHeight
+    if (editor.hasFocus()) {
+        canvas.size /= vertical ? 2 : 4
+    }
+    document.body.className = vertical ? "vertical" : "horizontal"
     canvas.width = canvas.size
     canvas.height = canvas.size
     canvas.radius0 = canvas.size * 0.10
@@ -679,7 +730,11 @@ var tracks
 
 function on_mousedown(e) {
     e.preventDefault()
-    editor.getInputField().blur()
+    if (editor.hasFocus()) {
+        editor.getInputField().blur()
+        reset_tracks()
+        return
+    }
     start_track("m", e.clientX, e.clientY, e.timeStamp)
 }
 
@@ -730,7 +785,7 @@ function end_tracks() {
         if (r < canvas.radius0) {
             if ("drag" in track) {
                 if(track.drag == "y") {
-                    update_pulse_width(clamp(Math.floor(pulse_width.value - (track.end.y - track.start.y) * 0.2 ), 50, 1000))
+                    update_freq(clamp((freq.value - (track.end.y - track.start.y) * canvas.size * 0.0002).toFixed(1), 1, 20))
                 }
             } else {
                     toggle_play()
@@ -762,7 +817,11 @@ function end_tracks() {
 
 function on_touchstart(e) {
     e.preventDefault()
-    editor.getInputField().blur()
+    if (editor.hasFocus()) {
+        editor.getInputField().blur()
+        reset_tracks()
+        return
+    }
     for (let t of e.changedTouches) {
         start_track(t.identifier, t.clientX, t.clientY, e.timeStamp)
     }
@@ -790,6 +849,15 @@ function on_touchcancel(e) {
     reset_tracks()
 }
 
+function on_editor_focus() {
+    stop()
+    resize()
+}
+
+function on_editor_blur() {
+    resize()
+}
+
 window.requestAnimationFrame(process)
 window.addEventListener('resize', resize, false)
 canvas.addEventListener("mousedown",   on_mousedown)
@@ -800,11 +868,12 @@ canvas.addEventListener("touchmove",   on_touchmove)
 canvas.addEventListener("touchend",    on_touchend)
 canvas.addEventListener("touchcancel", on_touchcancel)
 document.addEventListener('DOMContentLoaded', resize)
-editor.on("focus", stop)
+editor.on("focus", on_editor_focus)
+editor.on("blur", on_editor_blur)
 editor.on("changes", on_editor_change)
 
 var start_ts = 0
-
+var pulse_counter = 0
 
 </script>
 </body>
