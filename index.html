@@ -102,7 +102,7 @@ class Ring {
         if ("text" in this.volume) {
             editor.setValue(this.volume.calc_text(volume))
         } else {
-            editor.setValue(this.name.text.slice(0, this.name.pos + this.name.length) + " v" + volume + (this.name.text.slice(this.name.pos + this.name.length)))
+            editor.setValue(Parsed.insert(this.name.text, this.name.pos + this.name.length, " v" + volume))
         }
     }
 
@@ -155,6 +155,279 @@ class Parsed {
     calc_text(new_value) {
         return this.text.slice(0, this.pos) + new_value + this.text.slice(this.pos + this.length)
     }
+
+    static insert(text, pos, what) {
+        return text.slice(0, pos) + what + text.slice(pos)
+    }
+}
+
+class Circle {
+    constructor(name, rings, opts) {
+        this.name = name
+        this.rings = rings
+        opts = Object.assign({ freq: { value: 7.0 }, repeats: { value: 0 } }, opts);
+        this.freq = opts.freq
+        this.repeats = opts.repeats
+        
+        this.dots = []
+        let radius_id = 0
+        for (const [ring_id, ring] of this.rings.entries()) {
+            const part_count = Math.ceil(ring.period / this.period)
+            for (let part = 0; part < part_count; part++) {
+                for (let iteration = 0; iteration < Math.ceil(this.period / ring.period); iteration++) {
+                    for (let dot of ring.dots) {
+                        const iteration_dot_pulse = dot.pulse + iteration * ring.period
+                        if (!in_limits(iteration_dot_pulse - part * this.period, 0, this.period)) {
+                            continue
+                        }
+                        this.dots.push({ volume: ring.volume.value, ring_id, period: part_count * this.period, part_id: part, radius_id, symbol: dot.symbol.value, pulse: iteration_dot_pulse, active: dot.active, orig: dot })
+                    }
+                }
+                radius_id++;
+            }
+        }
+        this.radii_count = radius_id
+    }
+
+    update_freq(freq) {
+        if (checkpoint.ts) {
+            checkpoint = processed
+
+            /***/
+            console.log(`new freq=${freq} ts=${checkpoint.ts.toFixed(2)} cirlce_id=${checkpoint.circle_id} pulse=${checkpoint.pulse.toFixed(2)}`)
+            /***/
+        } else {
+            /***/
+            console.log(`new freq=${freq}`)
+            /***/
+        }
+
+        if ("text" in this.freq) {
+            editor.setValue(this.freq.calc_text(freq))
+        } else {
+            editor.setValue(Parsed.insert(this.name.text, this.name.pos + this.name.length + 1, " f" + freq))
+        }
+    }
+
+    update_name(name) {
+        if ("text" in this.name) {
+            editor.setValue(this.name.calc_text(name))
+        } else {
+            editor.setValue(Parsed.insert(this.rings[0].name.text, this.rings[0].name.pos, name + ".\n"))
+        }
+    }
+
+    get period() {
+        return this.rings[0].period
+    }
+    
+    get max_period() {
+        return Math.max(...this.rings.map(r => Math.ceil(r.period / this.period) * this.period))
+    }
+    
+    get duration() {
+        if (this.repeats.value) {
+            return this.max_period * this.repeats.value
+        } else {
+            return Infinity
+        }
+    }
+    
+    reset_played() {
+        for (let ring of this.rings) {
+            for (let dot of ring.dots) {
+                dot.played_pulse = null
+            }
+        }
+    }
+    
+    update(now, elapsed, pulse) {
+    
+        /***
+        let played = false
+        let report = now.toFixed(2).padEnd(16, ' ') + elapsed.toFixed(2).padEnd(8, ' ') + pulse.toFixed(2).padStart(8, ' ') + "  " + (this.name.value + "." + Math.floor(pulse/this.max_period)).padEnd(5, ' ')
+        /***/
+
+        for (let ring of this.rings) {
+            let ring_reported = false
+            for (let dot of ring.dots) {
+                if (ring.volume.value > 0 && dot.active
+                    && in_limits((pulse - dot.pulse) % ring.period, -0.1, 0.3)
+                    && (dot.played_pulse ==  null || pulse - dot.played_pulse > ring.period - 0.5)) {
+
+                    /***
+                    played = true
+                    ring_reported = true
+                    const ring_report = `${ring.name.value}-${dot.pulse}:`.padEnd(12, ' ') + `${((pulse - dot.pulse) % ring.period).toFixed(2)}`.padStart(5, ' ') + "[" + `${(dot.played_pulse ==  null ? "---" : (pulse - dot.played_pulse - ring.period).toFixed(2))}`.padStart(5, ' ') + "]"
+                    report += ring_report.padEnd(28, ' ')
+                    /***/
+
+                    ring.instrument.play(dot.symbol.value, ring.volume.value)
+                    dot.played_pulse = pulse
+                }
+            }
+
+            /***
+            if (!ring_reported) {
+                report += "".padEnd(28, ' ')
+            }
+            /***/
+        }
+
+        /***
+        if (played) {
+            console.log(report)
+        }
+        /***/
+    }
+    
+    draw (ctx, x, y, size, pulse) {
+    
+        const angle_delta = 2.0 * Math.PI / this.period
+        const dot_size = size * 0.012
+        const radius_delta = size * 0.38 / Math.max(3, this.radii_count)
+        const radius1 = canvas.radius0 + this.radii_count * radius_delta
+
+        ctx.save()
+        ctx.translate(x, y)
+        for (const dot of this.dots) {
+            ctx.save()
+
+            ctx.rotate((-0.5 + 2 * dot.pulse / this.period) * Math.PI)
+
+            const radius = canvas.radius0 + radius_delta * (dot.radius_id + 0.5)
+            const playing = dot.active && (checkpoint.ts || checkpoint.pulse) && in_limits((pulse - dot.pulse) % dot.period, -0.1, 0.9)
+
+            ctx.beginPath()
+            ctx.arc(0, 0, radius + 0.5 * radius_delta, + angle_delta / 2, - angle_delta / 2, true)
+            ctx.arc(0, 0, radius - 0.5 * radius_delta, - angle_delta / 2, + angle_delta / 2, false)
+            ctx.closePath()
+            if (dot.volume > 0) {
+                const color = palette[dot.ring_id % palette.length]
+                ctx.fillStyle = playing ? chroma(color).darken().saturate() : chroma.mix("#eee", color, dot.volume/2*0.6 + 0.2)
+            } else {
+                ctx.fillStyle = "#ddd"
+            }
+            ctx.fill()
+
+            if (dot.active) {
+                ctx.save()
+                ctx.translate(radius, 0)
+                ctx.beginPath()
+                if (dot.symbol == 's' || dot.symbol == 'h') {
+                    ctx.moveTo(0 - dot_size, 0 - dot_size)
+                    ctx.lineTo(0 - dot_size, 0 + dot_size)
+                    ctx.lineTo(0 + dot_size, 0)
+                } else if (dot.symbol == 'c') {
+                    ctx.moveTo(0 - dot_size, 0 - dot_size)
+                    ctx.lineTo(0 - dot_size, 0 + dot_size)
+                    ctx.lineTo(0 + dot_size, 0 + dot_size)
+                    ctx.lineTo(0 + dot_size, 0 - dot_size)
+                } else if (dot.symbol == 'k') {
+                    ctx.moveTo(0 - dot_size, 0 - dot_size / 2)
+                    ctx.lineTo(0 - dot_size, 0 + dot_size / 2)
+                    ctx.lineTo(0 + dot_size, 0 + dot_size / 2)
+                    ctx.lineTo(0 + dot_size, 0 - dot_size / 2)
+                } else if (dot.symbol == 'd' || dot.symbol == 'b') {
+                    ctx.moveTo(0 - dot_size, 0 - dot_size / 2)
+                    ctx.lineTo(0 - dot_size, 0 + dot_size / 2)
+                    ctx.lineTo(0 + dot_size, 0 + dot_size)
+                    ctx.lineTo(0 + dot_size, 0 - dot_size)
+                } else {
+                    ctx.arc(0, 0, dot_size, 0, 2 * Math.PI)
+                }
+                ctx.closePath()
+                ctx.lineWidth = size * 0.012
+                ctx.strokeStyle = background_color
+                ctx.stroke()
+                ctx.fillStyle = dot.volume > 0 ? "#444" : "#888"
+                ctx.fill()
+                ctx.restore()
+            }
+
+            ctx.restore()
+        }
+
+        ctx.strokeStyle = background_color
+        ctx.lineWidth = size * 0.006
+
+        for (let i = 0; i < this.period; i++) {
+            ctx.save()
+            ctx.rotate(2 * Math.PI * (i - 0.5) / this.period)
+            ctx.beginPath()
+            ctx.moveTo(canvas.radius0, 0)
+            ctx.lineTo(radius1, 0)
+            ctx.stroke()
+            ctx.restore()
+        }
+
+        for (let i = 0; i < this.radii_count + 1; i++) {
+            ctx.beginPath()
+            ctx.arc(0, 0, canvas.radius0 + i * radius_delta, 0, 2 * Math.PI)
+            ctx.stroke()
+        }
+
+        const shape_size = canvas.radius0 * 0.4
+        ctx.beginPath()
+        if (checkpoint.ts) {
+            ctx.moveTo(0 - shape_size, 0 - shape_size)
+            ctx.lineTo(0 - shape_size, 0 + shape_size)
+            ctx.lineTo(0 + shape_size, 0 + shape_size)
+            ctx.lineTo(0 + shape_size, 0 - shape_size)
+        } else {
+            ctx.moveTo(0 - 0.7 * shape_size, 0 - 1.2 * shape_size)
+            ctx.lineTo(0 - 0.7 * shape_size, 0 + 1.2 * shape_size)
+            ctx.lineTo(0 + 1.3 * shape_size, 0)
+        }
+        ctx.closePath()
+        ctx.lineJoin = "round"
+        ctx.lineWidth = size * 0.015
+        ctx.strokeStyle = "#469"
+        ctx.stroke()
+        
+        ctx.restore()
+    }
+
+    draw_debug(ctx, center_x, center_y, size, track) {
+        const angle_delta = 2.0 * Math.PI / this.period
+        const radius_delta = size * 0.38 / Math.max(3, this.radii_count)
+
+        const x = track.start.x - center_x
+        const y = track.start.y - center_y
+        const r = Math.sqrt(x * x + y * y)
+        const p = (Math.atan2(y, x) / (2 * Math.PI) + 0.25) * this.period
+
+        ctx.save()
+        ctx.translate(center_x, center_y)
+        ctx.strokeStyle = "red"
+        ctx.lineWidth = size * 0.002
+        if (r < canvas.radius0) {
+            ctx.beginPath()
+            ctx.arc(0, 0, canvas.radius0, 0, 2 * Math.PI)
+            ctx.stroke()
+        } else {
+
+            for (const dot of this.dots) {
+                if (in_limits((r - canvas.radius0) / radius_delta - dot.radius_id, 0, 1.0) &&
+                    in_limits(diff_period(dot.pulse, p, this.period), -0.5, 0.5)) {
+
+                    const radius = canvas.radius0 + radius_delta * dot.radius_id
+
+                    ctx.save()
+                    ctx.rotate((-0.5 + 2 * dot.pulse / this.period) * Math.PI)
+                    ctx.beginPath()
+                    ctx.arc(0, 0, radius + radius_delta, + angle_delta / 2, - angle_delta / 2, true)
+                    ctx.arc(0, 0, radius               , - angle_delta / 2, + angle_delta / 2, false)
+                    ctx.closePath()
+                    ctx.stroke()
+                    ctx.restore()
+                }
+            }
+        }
+        ctx.restore()
+    }
+    
+
 }
 
 var palette = [
@@ -168,33 +441,6 @@ var palette = [
 "#e377c2",
 "#b4b518",
 ]
-
-var freq = { value: 7.0 }
-
-function update_freq(new_freq) {
-    if (start_ts) {
-        const ts = performance.now()
-        pulse_counter += (ts - start_ts) * freq.value / 1000
-        start_ts = ts
-
-        /***/
-        console.log(`new freq=${new_freq} ts=${ts.toFixed(2)} pulse=${pulse_counter.toFixed(2)}`)
-        /***/
-    } else {
-        /***/
-        console.log(`new freq=${new_freq}`)
-        /***/
-    }
-
-    if ("text" in freq) {
-        editor.setValue(freq.calc_text(new_freq))
-    } else {
-        const text = editor.getValue()
-        const line = text.split(/(\r?\n)/, 1)[0]
-        const pos = /^#!/.test(line) ? 2 : 0
-        editor.setValue("#! f" + new_freq + (pos == 0 ? "\n" : line.length == 2 || /\s+/.test(line[2]) ? "" : " ") + text.slice(pos))
-    }
-}
 
 var sounds = {
     'beat':             new Sound('beat-wood.mp3', 0.4),
@@ -253,15 +499,22 @@ function split_chars(text) {
 }
 
 function parse_rhythm (text) {
+    let circles = []
     let rings = []
-    let name = ""
     let symbols = []
-    let opts = {}
-    
-    freq = { value: freq.value }
+    let circle_name = null
+    let ring_name = null
+    let circle_opts = {}
+    let ring_opts = {}
 
-    function valid(name, symbols) {
-        return (name.value in instruments) && symbols.length
+    let freq_overwrite = null
+
+    function valid_circle(name, rings) {
+        return name && name.length && rings.length
+    }
+
+    function valid_ring(name, symbols) {
+        return name && name.value in instruments && symbols.length
     }
 
     function to_symbols(pos, pattern) {
@@ -279,52 +532,121 @@ function parse_rhythm (text) {
             for (let token of split_words(line.content.substring(2))) {
                 const res = token.content.match(/^f(\d*\.?\d+)$/)
                 if (res) {
-                    freq = new Parsed(text, line.pos + token.pos + 3, res[1].length, parseFloat(res[1]))
+                    freq_overwrite = new Parsed(text, line.pos + token.pos + 3, res[1].length, parseFloat(res[1]))
                 }
             }
         } else {
-            const cleaned = line.content.replace(/#.*/, "")
-            const res = cleaned.match(/([^:\s][^:]*):(.*)/)
+            const cleaned = line.content.replace(/#.*$/, "")
+
+            let res = cleaned.match(/^(\d+)\.(.*)$/)
             if (res) {
-                if (valid(name, symbols)) {
-                    rings.push(new Ring(name, instruments[name.value], symbols, opts))
+                if (valid_ring(ring_name, symbols)) {
+                    rings.push(new Ring(ring_name, instruments[ring_name.value], symbols, ring_opts))
                 }
-                const tokens = split_words(res[1])
-                name = new Parsed(text, line.pos + tokens[0].pos, tokens[0].content.length, tokens[0].content)
-                symbols = to_symbols(line.pos + res[1].length + 1, res[2])
-                opts = {}
-                for (let token of tokens.slice(1)) {
-                    const res = token.content.match(/v(\d*\.?\d+)/)
+                if (valid_circle(circle_name, rings)) {
+                    circles.push(new Circle(circle_name, rings, circle_opts))
+                }
+                circle_name = new Parsed(text, line.pos, res[1].length, res[1])
+                symbols = []
+                ring_name = null
+                ring_opts = {}
+                rings = []
+                circle_opts = {}
+
+                const opt_pos = line.pos + res[1].length + 1
+                for (let token of split_words(res[2])) {
+                    let res = token.content.match(/^f(\d*\.?\d+)$/)
                     if (res) {
-                        opts.volume = new Parsed(text, line.pos + token.pos + 1, res[1].length, parseFloat(res[1]))
+                        circle_opts.freq = new Parsed(text, opt_pos + token.pos + 1, res[1].length, parseFloat(res[1]))
+                        continue
+                    }
+                    res = token.content.match(/^x(\d+)$/)
+                    if (res) {
+                        circle_opts.repeats = new Parsed(text, opt_pos + token.pos + 1, res[1].length, parseInt(res[1]))
+                        continue
                     }
                 }
-            } else {
-                symbols = symbols.concat(to_symbols(line.pos, cleaned))
+                continue
             }
+
+            res = cleaned.match(/^([^:\s][^:]*):(.*)$/)
+            if (res) {
+                if (valid_ring(ring_name, symbols)) {
+                    rings.push(new Ring(ring_name, instruments[ring_name.value], symbols, ring_opts))
+                }
+                const tokens = split_words(res[1])
+                ring_name = new Parsed(text, line.pos + tokens[0].pos, tokens[0].content.length, tokens[0].content)
+                symbols = to_symbols(line.pos + res[1].length + 1, res[2])
+                ring_opts = {}
+                for (let token of tokens.slice(1)) {
+                    const res = token.content.match(/^v(\d*\.?\d+)$/)
+                    if (res) {
+                        ring_opts.volume = new Parsed(text, line.pos + token.pos + 1, res[1].length, parseFloat(res[1]))
+                    }
+                }
+                continue
+            }
+
+            symbols = symbols.concat(to_symbols(line.pos, cleaned))
         }
     }
-    if (valid(name, symbols)) {
-        rings.push(new Ring(name, instruments[name.value], symbols, opts))
+
+    if (valid_ring(ring_name, symbols)) {
+        rings.push(new Ring(ring_name, instruments[ring_name.value], symbols, ring_opts))
     }
-    return rings
+
+    if (valid_circle(circle_name, rings)) {
+        circles.push(new Circle(circle_name, rings, circle_opts))
+    } else if (rings.length) {
+        circles.push(new Circle({ value: "" }, rings))
+    }
+    return circles
 }
 
-
-const text = window.localStorage.getItem("text") || `\
-shekere:  x... x... x... x...
-sangban:  c... x...
-dundunba: x... .... x.x. ....
-#djembe:   s..s s.tt
-djembe:  #tts. ts.. s..t .st.
-         #.s.. t.ss ..t. ..ss
-         #tts. .stt s..s ..s.
-         #.tss t.tt ..st ttss
-          ttst tstt stts ttst
-          tstt s.ss ttst tss.
+const rhythm_collection = {
+    "djole": `\
+1. f6.8 x2
+shekere:   x... x... x... x...
+2. f6.9 x4
+shekere:   x... x... x... x...
+sangban:   c... x... c... x...
+dundunba:  x... .... x.x. ....
+3. f7.0 x4
+shekere:   x... x... x... x...
+bass:      d... s... d.d. s...
+kenkeni v0.5:
+           ..xx ..xx ..xx ..xx
+4. f7.1 x8
+shekere:   x... x... x... x...
+bass:      d... s... d.d. s...
+kenkeni v0.5:
+           ..xx ..xx ..xx ..xx
+djembe:    tttt b... t.t. b...
+5. f7.2 x8
+shekere:   x... x... x... x...
+bass:      d.kk s.kk d.dk s.kk
+djembe:    ttst tstt stts ttst
+           tstt s.ss ttst tss.
 `
+}
 
-var rings = parse_rhythm(text)
+const compos_name = "djole"
+const text = window.localStorage.getItem(compos_name) || rhythm_collection[compos_name] || ""
+
+
+var circles = parse_rhythm(text)
+
+function fix_circles() {
+    if (circles.length) {
+        for (let circle_id = 0; circle_id < circles.length; circle_id++) {
+            if (circles[circle_id].name.value != circle_id + 1) {
+                circles[circle_id].update_name(circle_id + 1)
+            }
+        }
+    } else {
+        editor.setValue("1.\nshekere:   x... x... x... x...\n")
+    }
+}
 
 CodeMirror.defineMode("rhythm", function() {
     return {
@@ -354,8 +676,6 @@ CodeMirror.defineMode("rhythm", function() {
 })
 
 var editor = CodeMirror(document.getElementById("editor"), { mode: "rhythm", value: text, scrollbarStyle: "overlay" })
-
-
 function in_limits(x, l1, l2) {
     return x >= l1 && x < l2
 }
@@ -364,322 +684,126 @@ function clamp(x, min, max) {
     return Math.min(Math.max(x, min), max)
 };
 
-function update(now, elapsed, pulse) {
-
-    /***
-    let played = false
-    let report = (`${now.toFixed(2)}`).padEnd(16, ' ') + (`${elapsed.toFixed(2)}`).padEnd(8, ' ') + (`${pulse.toFixed(2)}:`).padStart(8, ' ')
-    /***/
-
-    for (let ring of rings) {
-        let ring_reported = false
-        for (let dot of ring.dots) {
-            if (ring.volume.value > 0 && dot.active
-                && in_limits((pulse - dot.pulse) % ring.period, -0.1, 0.3)
-                && (dot.played_pulse ==  null || pulse - dot.played_pulse > ring.period - 0.5)) {
-
-                /***
-                played = true
-                ring_reported = true
-                const ring_report = `${ring.name.value}-${dot.pulse}:`.padEnd(12, ' ') + `${((pulse - dot.pulse) % ring.period).toFixed(2)}`.padStart(5, ' ') + "[" + `${(dot.played_pulse ==  null ? "---" : (pulse - dot.played_pulse - ring.period).toFixed(2))}`.padStart(5, ' ') + "]"
-                report += ring_report.padEnd(28, ' ')
-                /***/
-
-                ring.instrument.play(dot.symbol.value, ring.volume.value)
-                dot.played_pulse = pulse
-            }
-        }
-
-        /***
-        if (!ring_reported) {
-            report += "".padEnd(28, ' ')
-        }
-        /***/
-    }
-
-    /***
-    if (played) {
-        console.log(report)
-    }
-    /***/
-}
-
 function process(ts) {
-    const elapsed = ts - start_ts
-    const pulse = pulse_counter + elapsed * freq.value / 1000
-
-    if (start_ts) {
-        update(ts, elapsed, pulse)
+    let { pulse, circle_id } = checkpoint
+    if (checkpoint.ts) {
+        let elapsed = ts - checkpoint.ts
+        pulse += elapsed * circles[circle_id].freq.value / 1000
+        while (circle_id < circles.length && pulse >= circles[circle_id].duration) {
+            const left = (pulse - circles[circle_id].duration) / circles[circle_id].freq.value * 1000
+            circle_id ++
+            if (circle_id >= circles.length) {
+                circle_id = 0
+                circles.forEach(c => c.reset_played())
+                console.log(`restarting ts=${ts.toFixed(2)}`)
+                checkpoint.ts = ts
+                elapsed = 0
+            }
+            pulse = left * circles[circle_id].freq.value / 1000
+        }
+        circles[circle_id].update(ts, elapsed, pulse)
     }
-    draw(start_ts ? pulse : pulse_counter, ts)
+
+    draw(circle_id, pulse, ts)
     window.requestAnimationFrame(process)
+    processed = { ts, circle_id, pulse }
 }
 
 function stop() {
-    console.log(`stopping ts=${performance.now().toFixed(2)}`)
-    start_ts = 0;
-    pulse_counter = 0
-    for (let ring of rings) {
-        for (let dot of ring.dots) {
-            dot.played_pulse = null
-        }
-    }
+    console.log(`stop ts=${checkpoint.ts.toFixed(2)} cirlce_id=${processed.circle_id}`)
+    checkpoint.circle_id = processed.circle_id
+    checkpoint.ts = 0
+    checkpoint.pulse = 0
+    circles.forEach(c => {c.reset_played()})
 }
 
 function start() {
-    start_ts = performance.now() + 10.0
-    console.log(`starting ts=${start_ts.toFixed(2)}`)
+    checkpoint.ts = performance.now() + 10.0
+    console.log(`starting ts=${checkpoint.ts.toFixed(2)}  cirlce_id=${checkpoint.circle_id} pulse=${checkpoint.pulse.toFixed(2)}`)
 }
 
 function pause() {
-    const ts = performance.now()
-    pulse_counter += (ts - start_ts) * freq.value / 1000
-    console.log(`pause ts=${ts.toFixed(2)} pulse=${pulse_counter.toFixed(2)}`)
-    start_ts = 0;
+    checkpoint = processed
+    console.log(`pause ts=${checkpoint.ts.toFixed(2)} cirlce_id=${checkpoint.circle_id} pulse=${checkpoint.pulse.toFixed(2)}`)
+    checkpoint.ts = 0
 }
 
 function toggle_play() {
-    if (start_ts) {
+    if (checkpoint.ts) {
         stop()
     } else {
         start()
     }
 }
 
-function* dots(rings, period) {
-    let radius_id = 0
-    for (const [ring_id, ring] of rings.entries()) {
-        const part_count = Math.ceil(ring.period / period)
-        for (let part = 0; part < part_count; part++) {
-            for (let iteration = 0; iteration < Math.ceil(period / ring.period); iteration++) {
-                for (let dot of ring.dots) {
-                    const iteration_dot_pulse = dot.pulse + iteration * ring.period
-                    if (!in_limits(iteration_dot_pulse - part * period, 0, period)) {
-                        continue
-                    }
-                    yield { volume: ring.volume.value, ring_id, period: part_count * period, part_id: part, radius_id, symbol: dot.symbol.value, pulse: iteration_dot_pulse, active: dot.active, orig: dot }
-                }
+function draw_track(ctx, track, size, now) {
+    if (track.points.length) {
+        ctx.lineWidth = size * 0.050
+        ctx.lineCap = "round"
+        let prev_point = track.points[0]
+        for (const point of track.points) {
+            const life = (point.ts - now + 200) / 200
+            if (life > 0) {
+                ctx.beginPath()
+                ctx.moveTo(prev_point.x, prev_point.y)
+                ctx.lineTo(point.x, point.y)
+                ctx.strokeStyle = 'rgba(0, 255, 0, ' + life + ')'
+                ctx.stroke()
             }
-            radius_id++;
+            prev_point = point
         }
+    }
+
+    if ("drag" in track) {
+        ctx.beginPath()
+        ctx.moveTo(track.start.x, track.start.y)
+        if (track.drag == "x") {
+            ctx.lineTo(track.end.x, track.start.y)
+        } else {
+            ctx.lineTo(track.start.x, track.end.y)
+        }
+        ctx.strokeStyle = "blue"
+        ctx.lineWidth = canvas.size * 0.020
+        ctx.stroke()
     }
 }
 
-function draw(pulse, now) {
+function draw(circle_id, pulse, now) {
 
     const ctx = canvas.getContext('2d')
     ctx.clearRect(0, 0, canvas.width, canvas.height)
-    if (!rings.length) {
+
+    if (!circles.length) {
         return
     }
 
-    const period = rings[0].period
-    const radii_count = rings.reduce((count, ring) => count + Math.ceil(ring.period / period), 0)
-    const angle_delta = 2.0 * Math.PI / period
-    const dot_size = canvas.size * 0.012
-    const radius_delta = canvas.size * 0.38 / Math.max(3, radii_count)
-    const radius1 = canvas.radius0 + radii_count * radius_delta
-
-    ctx.save()
-    ctx.translate(canvas.width / 2, canvas.height / 2)
-    for (const dot of dots(rings, period)) {
-        ctx.save()
-
-        ctx.rotate((-0.5 + 2 * dot.pulse / period) * Math.PI)
-
-        const radius = canvas.radius0 + radius_delta * (dot.radius_id + 0.5)
-        const playing = dot.active && (start_ts || pulse_counter) && in_limits((pulse - dot.pulse) % dot.period, -0.1, 0.9)
-
-        ctx.beginPath()
-        ctx.arc(0, 0, radius + 0.5 * radius_delta, + angle_delta / 2, - angle_delta / 2, true)
-        ctx.arc(0, 0, radius - 0.5 * radius_delta, - angle_delta / 2, + angle_delta / 2, false)
-        ctx.closePath()
-        if (dot.volume > 0) {
-            const color = palette[dot.ring_id % palette.length]
-            ctx.fillStyle = playing ? chroma(color).darken().saturate() : chroma.mix("#eee", color, dot.volume/2*0.6 + 0.2)
-        } else {
-            ctx.fillStyle = "#ddd"
-        }
-        ctx.fill()
-
-        if (dot.active) {
-            ctx.save()
-            ctx.translate(radius, 0)
-            ctx.beginPath()
-            if (dot.symbol == 's' || dot.symbol == 'h') {
-                ctx.moveTo(0 - dot_size, 0 - dot_size)
-                ctx.lineTo(0 - dot_size, 0 + dot_size)
-                ctx.lineTo(0 + dot_size, 0)
-            } else if (dot.symbol == 'c') {
-                ctx.moveTo(0 - dot_size, 0 - dot_size)
-                ctx.lineTo(0 - dot_size, 0 + dot_size)
-                ctx.lineTo(0 + dot_size, 0 + dot_size)
-                ctx.lineTo(0 + dot_size, 0 - dot_size)
-            } else if (dot.symbol == 'k') {
-                ctx.moveTo(0 - dot_size, 0 - dot_size / 2)
-                ctx.lineTo(0 - dot_size, 0 + dot_size / 2)
-                ctx.lineTo(0 + dot_size, 0 + dot_size / 2)
-                ctx.lineTo(0 + dot_size, 0 - dot_size / 2)
-            } else if (dot.symbol == 'd' || dot.symbol == 'b') {
-                ctx.moveTo(0 - dot_size, 0 - dot_size / 2)
-                ctx.lineTo(0 - dot_size, 0 + dot_size / 2)
-                ctx.lineTo(0 + dot_size, 0 + dot_size)
-                ctx.lineTo(0 + dot_size, 0 - dot_size)
-            } else {
-                ctx.arc(0, 0, dot_size, 0, 2 * Math.PI)
-            }
-            ctx.closePath()
-            ctx.lineWidth = canvas.size * 0.012
-            ctx.strokeStyle = background_color
-            ctx.stroke()
-            ctx.fillStyle = dot.volume > 0 ? "#444" : "#888"
-            ctx.fill()
-            ctx.restore()
-        }
-
-        ctx.restore()
-    }
-
-    ctx.strokeStyle = background_color
-    ctx.lineWidth = canvas.size * 0.006
-
-    for (let i = 0; i < period; i++) {
-        ctx.save()
-        ctx.rotate(2 * Math.PI * (i - 0.5) / period)
-        ctx.beginPath()
-        ctx.moveTo(canvas.radius0, 0)
-        ctx.lineTo(radius1, 0)
-        ctx.stroke()
-        ctx.restore()
-    }
-
-    for (let i = 0; i < radii_count + 1; i++) {
-        ctx.beginPath()
-        ctx.arc(0, 0, canvas.radius0 + i * radius_delta, 0, 2 * Math.PI)
-        ctx.stroke()
-    }
-
-    const shape_size = canvas.radius0 * 0.4
-    ctx.beginPath()
-    if (start_ts) {
-        ctx.moveTo(0 - shape_size, 0 - shape_size)
-        ctx.lineTo(0 - shape_size, 0 + shape_size)
-        ctx.lineTo(0 + shape_size, 0 + shape_size)
-        ctx.lineTo(0 + shape_size, 0 - shape_size)
-    } else {
-        ctx.moveTo(0 - 0.7 * shape_size, 0 - 1.2 * shape_size)
-        ctx.lineTo(0 - 0.7 * shape_size, 0 + 1.2 * shape_size)
-        ctx.lineTo(0 + 1.3 * shape_size, 0)
-    }
-    ctx.closePath()
-    ctx.lineJoin = "round"
-    ctx.lineWidth = canvas.size * 0.015
-    ctx.strokeStyle = "#469"
-    ctx.stroke()
+    circles[circle_id].draw(ctx, canvas.width / 2, canvas.height / 2, canvas.size, pulse)
 
     const touch_ids = Object.keys(tracks)
 
     if (touch_ids.length == 1) {
         const track = tracks[touch_ids[0]]
-        const x = track.start.x - canvas.width / 2
-        const y = track.start.y - canvas.height / 2
-        const r = Math.sqrt(x * x + y * y)
-        const p = (Math.atan2(y, x) / (2 * Math.PI) + 0.25) * period
+        circles[circle_id].draw_debug(ctx, canvas.width / 2, canvas.height / 2, canvas.size, track)
+        draw_track(ctx, track, canvas.size, now)
 
-        ctx.strokeStyle = "red"
-        ctx.lineWidth = canvas.size * 0.002
-        if (r < canvas.radius0) {
-            ctx.beginPath()
-            ctx.arc(0, 0, canvas.radius0, 0, 2 * Math.PI)
-            ctx.stroke()
-        } else {
-
-            for (const dot of dots(rings, period)) {
-                if (in_limits((r - canvas.radius0) / radius_delta - dot.radius_id, 0, 1.0) &&
-                    in_limits(diff_period(dot.pulse, p, period), -0.5, 0.5)) {
-
-                    const radius = canvas.radius0 + radius_delta * dot.radius_id
-
-                    ctx.save()
-                    ctx.rotate((-0.5 + 2 * dot.pulse / period) * Math.PI)
-                    ctx.beginPath()
-                    ctx.arc(0, 0, radius + radius_delta, + angle_delta / 2, - angle_delta / 2, true)
-                    ctx.arc(0, 0, radius               , - angle_delta / 2, + angle_delta / 2, false)
-                    ctx.closePath()
-                    ctx.stroke()
-                    ctx.restore()
-                }
-            }
-        }
-    }
-
-    ctx.restore()
-
-    
-    if (touch_ids.length == 1) {
-        const track = tracks[touch_ids[0]]
-
-        if (track.points.length) {
-            ctx.lineWidth = canvas.size * 0.050
-            ctx.lineCap = "round"
-            let prev_point = track.points[0]
-            for (const point of track.points) {
-                const life = (point.ts - now + 200) / 200
-                if (life > 0) {
-                    ctx.beginPath()
-                    ctx.moveTo(prev_point.x, prev_point.y)
-                    ctx.lineTo(point.x, point.y)
-                    ctx.strokeStyle = 'rgba(0, 255, 0, ' + life + ')'
-                    ctx.stroke()
-                }
-                prev_point = point
-            }
+        if ("planned_freq" in track && track.planned_freq.circle_id == circle_id) {
+            ctx.font = 'bold 64px sans-serif'
+            ctx.fillStyle = "blue"
+            ctx.strokeStyle = background_color
+            ctx.lineWidth = 5
+            let str = "f" + track.planned_freq.value
+            ctx.strokeText(str, 8, 72)
+            ctx.fillText(str, 8, 72)
         }
 
-        if ("drag" in track) {
-            const x = track.start.x - canvas.width / 2
-            const y = track.start.y - canvas.height / 2
-            const r = Math.sqrt(x * x + y * y)
-
-            ctx.beginPath()
-            ctx.moveTo(track.start.x, track.start.y)
-            if (track.drag == "x") {
-                ctx.lineTo(track.end.x, track.start.y)
-            } else {
-                ctx.lineTo(track.start.x, track.end.y)
-            }
-            ctx.strokeStyle = "blue"
-            ctx.lineWidth = canvas.size * 0.020
-            ctx.stroke()
-
-            if (r < canvas.radius0) {
-                if (track.drag == "y") {
-                    ctx.font = 'bold 64px sans-serif'
-                    ctx.fillStyle = "blue"
-                    ctx.strokeStyle = background_color
-                    ctx.lineWidth = 5
-                    let str = "f" + clamp((freq.value - (track.end.y - track.start.y) * canvas.size * 0.00002).toFixed(1), 1, 20)
-                    ctx.strokeText(str, 8, 72)
-                    ctx.fillText(str, 8, 72)
-                }
-            } else {
-                for (const dot of dots(rings, period)) {
-                    if (in_limits((r - canvas.radius0) / radius_delta - dot.radius_id, 0, 1.0)) {
-                        if (track.drag == "y") {
-                            const ring = rings[dot.ring_id]
-                            ctx.font = 'bold 64px sans-serif'
-                            const volume = clamp((ring.volume.value - (track.end.y - track.start.y) * canvas.size * 0.00002).toFixed(1), 0.0, 2.0)
-                            const str = "v" + volume
-                            ctx.fillStyle = "green"
-                            ctx.strokeStyle = background_color
-                            ctx.lineWidth = 5
-                            ctx.strokeText(str, 8, 72)
-                            ctx.fillText(str, 8, 72)
-                        }
-                        break
-                    }
-                }
-            }
+        if ("planned_volume" in track && track.planned_volume.circle_id == circle_id) {
+            ctx.font = 'bold 64px sans-serif'
+            const str = "v" + track.planned_volume.value
+            ctx.fillStyle = "green"
+            ctx.strokeStyle = background_color
+            ctx.lineWidth = 5
+            ctx.strokeText(str, 8, 72)
+            ctx.fillText(str, 8, 72)
         }
     }
 }
@@ -699,8 +823,9 @@ function resize() {
 
 function on_editor_change(editor) {
     const text = editor.getValue()
-    rings = parse_rhythm(text)
-    window.localStorage.setItem("text", text)
+    circles = parse_rhythm(text)
+    fix_circles()
+    window.localStorage.setItem(compos_name, text)
 }
 
 
@@ -768,6 +893,35 @@ function update_track(id, x, y, ts) {
     if (id in tracks) {
         tracks[id].add_point(x, y, ts)
     }
+
+    let touch_ids = Object.keys(tracks)
+    if (touch_ids.length == 1) {
+        let track = tracks[touch_ids[0]]
+        const x = track.start.x - canvas.width / 2
+        const y = track.start.y - canvas.height / 2
+        const r = Math.sqrt(x * x + y * y)
+
+        const circle = circles[processed.circle_id]
+        
+        if (r < canvas.radius0) {
+            if ("drag" in track) {
+                if(track.drag == "y") {
+                    track.planned_freq = { circle_id: processed.circle_id, value: clamp((circle.freq.value - (track.end.y - track.start.y) * canvas.size * 0.00002).toFixed(1), 1, 20) }
+                }
+            }
+        } else {
+            const radius_delta = canvas.size * 0.38 / Math.max(3, circle.radii_count)
+            for (const dot of circle.dots) {
+                if (in_limits((r - canvas.radius0) / radius_delta - dot.radius_id, 0, 1.0)) {
+                    if (track.drag == "y") {
+                        const ring = circle.rings[dot.ring_id]
+                        track.planned_volume = { circle_id: processed.circle_id, ring_id: dot.ring_id, value: clamp((ring.volume.value - (track.end.y - track.start.y) * canvas.size * 0.00002).toFixed(1), 0.0, 2.0) }
+                    }
+                    break
+                }
+            }
+        }
+    }
 }
 
 function reset_tracks() {
@@ -782,27 +936,27 @@ function end_tracks() {
         const y = track.start.y - canvas.height / 2
         const r = Math.sqrt(x * x + y * y)
 
+        const circle = circles[processed.circle_id]
+
         if (r < canvas.radius0) {
             if ("drag" in track) {
-                if(track.drag == "y") {
-                    update_freq(clamp((freq.value - (track.end.y - track.start.y) * canvas.size * 0.00002).toFixed(1), 1, 20))
+                if(track.drag == "y" && "planned_freq" in track && track.planned_freq.circle_id == processed.circle_id) {
+                    circle.update_freq(track.planned_freq.value)
                 }
             } else {
                     toggle_play()
             }
         } else {
-            const period = rings[0].period
-            const radii_count = rings.reduce((count, ring) => count + Math.ceil(ring.period / period), 0)
-            const radius_delta = canvas.size * 0.38 / Math.max(3, radii_count)
-            const p = (Math.atan2(y, x) / (2 * Math.PI) + 0.25) * period
-            for (const dot of dots(rings, period)) {
+            const radius_delta = canvas.size * 0.38 / Math.max(3, circle.radii_count)
+            const p = (Math.atan2(y, x) / (2 * Math.PI) + 0.25) * circle.period
+            for (const dot of circle.dots) {
                 if (in_limits((r - canvas.radius0) / radius_delta - dot.radius_id, 0, 1.0) &&
-                    in_limits(diff_period(dot.pulse, p, period), -0.5, 0.5)) {
+                    in_limits(diff_period(dot.pulse, p, circle.period), -0.5, 0.5)) {
 
-                    const ring = rings[dot.ring_id]
+                    const ring = circle.rings[dot.ring_id]
                     if ("drag" in track) {
-                        if (track.drag == "y") {
-                            ring.update_volume(clamp((ring.volume.value - (track.end.y - track.start.y) * canvas.size * 0.00002).toFixed(1), 0.0, 2.0))
+                        if (track.drag == "y" && "planned_volume" in track && track.planned_volume.circle_id == processed.circle_id && track.planned_volume.ring_id == dot.ring_id) {
+                            ring.update_volume(track.planned_volume.value)
                         }
                     } else {
                         dot.orig.update_symbol(ring.instrument.next_symbol(dot.symbol))
@@ -872,8 +1026,10 @@ editor.on("focus", on_editor_focus)
 editor.on("blur", on_editor_blur)
 editor.on("changes", on_editor_change)
 
-var start_ts = 0
-var pulse_counter = 0
+var checkpoint = { circle_id: 0, ts: 0, pulse: 0 }
+var processed = checkpoint
+
+fix_circles()
 
 </script>
 </body>
