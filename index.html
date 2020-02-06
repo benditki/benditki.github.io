@@ -689,17 +689,19 @@ function process(ts) {
     if (checkpoint.ts) {
         let elapsed = ts - checkpoint.ts
         pulse += elapsed * circles[circle_id].freq.value / 1000
-        while (circle_id < circles.length && pulse >= circles[circle_id].duration) {
+        while (pulse >= circles[circle_id].duration) {
             const left = (pulse - circles[circle_id].duration) / circles[circle_id].freq.value * 1000
             circle_id ++
+            pulse = left * circles[circle_id % circles.length].freq.value / 1000
             if (circle_id >= circles.length) {
                 circle_id = 0
                 circles.forEach(c => c.reset_played())
-                console.log(`restarting ts=${ts.toFixed(2)}`)
+                console.log(`restarting ts=${ts.toFixed(2)} left=${left.toFixed(2)} pulse=${pulse.toFixed(2)}`)
                 checkpoint.ts = ts
+                checkpoint.pulse = pulse
+                checkpoint.circle_id = circle_id
                 elapsed = 0
             }
-            pulse = left * circles[circle_id].freq.value / 1000
         }
         circles[circle_id].update(ts, elapsed, pulse)
     }
