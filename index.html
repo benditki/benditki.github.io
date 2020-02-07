@@ -66,7 +66,29 @@ body.vertical {
 
 var canvas = document.getElementById("canvas")
 
-var background_color = "white"
+const settings = {
+    background_color: "white",
+    low_vol_color: "#eee",
+    muted_color: "#ddd",
+    dot_color: "#444",
+    dot_dim_color: "#888",
+    start_shift: 10,
+
+    volume_mix: v => v / 2 * 0.6 + 0.2,
+    min_radius_devider: 3,
+    play_range: {
+        draw: [-0.1, 0.9]
+    },
+    main: {
+        size: 0.95,
+        radius0: 0.1
+    },
+    secondary: {
+        height: 0.2,
+        width: 0.2,
+        size: 0.17
+    }
+}
 
 class Dot {
     constructor(pulse, symbol) {
@@ -281,22 +303,39 @@ class Circle {
         /***/
     }
     
-    draw (ctx, x, y, size, pulse) {
-    
+    draw (ctx, x, y, size, pulse, label, opts) {
+        const label_opts = { color: "#469", font: 5, outline: 0.02 }
+        const shadow = { color: '#532', blur: 5, offset_x: 0.05, size: 1.0 }
+        opts = { dot: 0.012, dot_line: 0.012, sep_line: 0.006, radii_line: 0.006, shadow, label: label_opts, ...opts }
         const angle_delta = 2.0 * Math.PI / this.period
-        const dot_size = size * 0.012
-        const radius_delta = size * 0.38 / Math.max(3, this.radii_count)
-        const radius1 = canvas.radius0 + this.radii_count * radius_delta
+        const radius0 = size * opts.radius0_ratio
+        const dot_size = size * opts.dot
+        const radius_delta = (size * 0.5 - radius0) / Math.max(opts.min_radius_devider, this.radii_count)
+        const radius1 = radius0 + this.radii_count * radius_delta
 
         ctx.save()
         ctx.translate(x, y)
+
+        if (opts.shadow) {
+            ctx.save()
+            ctx.shadowColor = opts.shadow.color
+            ctx.shadowBlur = opts.shadow.blur
+            ctx.shadowOffsetY = size * opts.shadow.offset_x
+            ctx.beginPath()
+            ctx.arc(0, 0, size * opts.shadow.size * 0.5, 0, 2 * Math.PI)
+            ctx.fillStyle = settings.background_color
+            ctx.fill()
+            ctx.restore()
+        }
+     
+
         for (const dot of this.dots) {
             ctx.save()
 
             ctx.rotate((-0.5 + 2 * dot.pulse / this.period) * Math.PI)
 
-            const radius = canvas.radius0 + radius_delta * (dot.radius_id + 0.5)
-            const playing = dot.active && (checkpoint.ts || checkpoint.pulse) && in_limits((pulse - dot.pulse) % dot.period, -0.1, 0.9)
+            const radius = radius0 + radius_delta * (dot.radius_id + 0.5)
+            const playing = pulse === true || pulse !== true && pulse !== false && dot.active && (checkpoint.ts || checkpoint.pulse) && in_limits((pulse - dot.pulse) % dot.period, settings.play_range.draw[0], settings.play_range.draw[1])
 
             ctx.beginPath()
             ctx.arc(0, 0, radius + 0.5 * radius_delta, + angle_delta / 2, - angle_delta / 2, true)
@@ -304,9 +343,9 @@ class Circle {
             ctx.closePath()
             if (dot.volume > 0) {
                 const color = palette[dot.ring_id % palette.length]
-                ctx.fillStyle = playing ? chroma(color).darken().saturate() : chroma.mix("#eee", color, dot.volume/2*0.6 + 0.2)
+                ctx.fillStyle = playing ? chroma(color).darken().saturate() : chroma.mix(settings.low_vol_color, color, settings.volume_mix(dot.volume))
             } else {
-                ctx.fillStyle = "#ddd"
+                ctx.fillStyle = settings.muted_color
             }
             ctx.fill()
 
@@ -337,10 +376,12 @@ class Circle {
                     ctx.arc(0, 0, dot_size, 0, 2 * Math.PI)
                 }
                 ctx.closePath()
-                ctx.lineWidth = size * 0.012
-                ctx.strokeStyle = background_color
-                ctx.stroke()
-                ctx.fillStyle = dot.volume > 0 ? "#444" : "#888"
+                if (opts.dot_line) {
+                    ctx.lineWidth = size * opts.dot_line
+                    ctx.strokeStyle = settings.background_color
+                    ctx.stroke()
+                }
+                ctx.fillStyle = dot.volume > 0 ? settings.dot_color : settings.dot_dim_color
                 ctx.fill()
                 ctx.restore()
             }
@@ -348,49 +389,63 @@ class Circle {
             ctx.restore()
         }
 
-        ctx.strokeStyle = background_color
-        ctx.lineWidth = size * 0.006
+        ctx.strokeStyle = settings.background_color
+        ctx.lineWidth = size * opts.radii_line
 
         for (let i = 0; i < this.period; i++) {
             ctx.save()
             ctx.rotate(2 * Math.PI * (i - 0.5) / this.period)
             ctx.beginPath()
-            ctx.moveTo(canvas.radius0, 0)
+            ctx.moveTo(radius0, 0)
             ctx.lineTo(radius1, 0)
             ctx.stroke()
             ctx.restore()
         }
 
+        ctx.lineWidth = size * opts.sep_line
         for (let i = 0; i < this.radii_count + 1; i++) {
             ctx.beginPath()
-            ctx.arc(0, 0, canvas.radius0 + i * radius_delta, 0, 2 * Math.PI)
+            ctx.arc(0, 0, radius0 + i * radius_delta, 0, 2 * Math.PI)
             ctx.stroke()
         }
 
-        const shape_size = canvas.radius0 * 0.4
-        ctx.beginPath()
-        if (checkpoint.ts) {
-            ctx.moveTo(0 - shape_size, 0 - shape_size)
-            ctx.lineTo(0 - shape_size, 0 + shape_size)
-            ctx.lineTo(0 + shape_size, 0 + shape_size)
-            ctx.lineTo(0 + shape_size, 0 - shape_size)
+        if (label) {
+            ctx.textAlign = "center"
+            ctx.textBaseline = "middle"
+            ctx.font = 'bold '+ Math.floor(radius0 * opts.label.font) + 'px sans-serif'
+            ctx.fillStyle  = opts.label.color
+            ctx.strokeStyle = settings.background_color
+            ctx.lineWidth = size * opts.label.outline * 2
+            ctx.strokeText(label, 0, radius0 * opts.label.font * 0.1)
+            ctx.fillText(label, 0, radius0 * opts.label.font * 0.1)
         } else {
-            ctx.moveTo(0 - 0.7 * shape_size, 0 - 1.2 * shape_size)
-            ctx.lineTo(0 - 0.7 * shape_size, 0 + 1.2 * shape_size)
-            ctx.lineTo(0 + 1.3 * shape_size, 0)
+            const shape_size = radius0 * 0.4
+            ctx.beginPath()
+            if (checkpoint.ts) {
+                ctx.moveTo(0 - shape_size, 0 - shape_size)
+                ctx.lineTo(0 - shape_size, 0 + shape_size)
+                ctx.lineTo(0 + shape_size, 0 + shape_size)
+                ctx.lineTo(0 + shape_size, 0 - shape_size)
+            } else {
+                ctx.moveTo(0 - 0.7 * shape_size, 0 - 1.2 * shape_size)
+                ctx.lineTo(0 - 0.7 * shape_size, 0 + 1.2 * shape_size)
+                ctx.lineTo(0 + 1.3 * shape_size, 0)
+            }
+            ctx.closePath()
+            ctx.lineJoin = "round"
+            ctx.lineWidth = size * 0.015
+            ctx.strokeStyle = "#469"
+            ctx.stroke()
         }
-        ctx.closePath()
-        ctx.lineJoin = "round"
-        ctx.lineWidth = size * 0.015
-        ctx.strokeStyle = "#469"
-        ctx.stroke()
         
         ctx.restore()
     }
 
-    draw_debug(ctx, center_x, center_y, size, track) {
+    draw_debug(ctx, center_x, center_y, size, track, opts) {
+        opts = { line: 0.002, color: "red", ...(opts || {}) }
         const angle_delta = 2.0 * Math.PI / this.period
-        const radius_delta = size * 0.38 / Math.max(3, this.radii_count)
+        const radius0 = size * opts.radius0_ratio
+        const radius_delta = (size * 0.5 - radius0) / Math.max(opts.min_radius_devider, this.radii_count)
 
         const x = track.start.x - center_x
         const y = track.start.y - center_y
@@ -399,19 +454,19 @@ class Circle {
 
         ctx.save()
         ctx.translate(center_x, center_y)
-        ctx.strokeStyle = "red"
-        ctx.lineWidth = size * 0.002
-        if (r < canvas.radius0) {
+        ctx.strokeStyle = opts.color
+        ctx.lineWidth = size * opts.line
+        if (r < radius0) {
             ctx.beginPath()
-            ctx.arc(0, 0, canvas.radius0, 0, 2 * Math.PI)
+            ctx.arc(0, 0, radius0, 0, 2 * Math.PI)
             ctx.stroke()
-        } else {
+        } else if (r <= size * 0.5) {
 
             for (const dot of this.dots) {
-                if (in_limits((r - canvas.radius0) / radius_delta - dot.radius_id, 0, 1.0) &&
+                if (in_limits((r - radius0) / radius_delta - dot.radius_id, 0, 1.0) &&
                     in_limits(diff_period(dot.pulse, p, this.period), -0.5, 0.5)) {
 
-                    const radius = canvas.radius0 + radius_delta * dot.radius_id
+                    const radius = radius0 + radius_delta * dot.radius_id
 
                     ctx.save()
                     ctx.rotate((-0.5 + 2 * dot.pulse / this.period) * Math.PI)
@@ -426,8 +481,6 @@ class Circle {
         }
         ctx.restore()
     }
-    
-
 }
 
 var palette = [
@@ -720,7 +773,7 @@ function stop() {
 }
 
 function start() {
-    checkpoint.ts = performance.now() + 10.0
+    checkpoint.ts = performance.now() + settings.start_shift
     console.log(`starting ts=${checkpoint.ts.toFixed(2)}  cirlce_id=${checkpoint.circle_id} pulse=${checkpoint.pulse.toFixed(2)}`)
 }
 
@@ -772,6 +825,8 @@ function draw_track(ctx, track, size, now) {
 
 function draw(circle_id, pulse, now) {
 
+    const circle_opts = { min_radius_devider: settings.min_radius_devider, radius0_ratio: settings.main.radius0 }
+
     const ctx = canvas.getContext('2d')
     ctx.clearRect(0, 0, canvas.width, canvas.height)
 
@@ -779,19 +834,33 @@ function draw(circle_id, pulse, now) {
         return
     }
 
-    circles[circle_id].draw(ctx, canvas.width / 2, canvas.height / 2, canvas.size, pulse)
+    for (let i = 0; i < circles.length; i++) {
+        if (i == circle_id) {
+            circles[i].draw(ctx, canvas.width / 2, canvas.height / 2, canvas.size * settings.main.size, pulse, null, { ...circle_opts, shadow: null })
+        }
+        circles[i].draw(ctx, canvas.size * settings.secondary.width * (i + 0.5), canvas.size * settings.secondary.height * 0.5, canvas.size * settings.secondary.size, i == circle_id, i + 1, { ...circle_opts, dot: 0.02, dot_line: 0.04, sep_line: 0.05 })
+    }
 
+    
     const touch_ids = Object.keys(tracks)
 
     if (touch_ids.length == 1) {
         const track = tracks[touch_ids[0]]
-        circles[circle_id].draw_debug(ctx, canvas.width / 2, canvas.height / 2, canvas.size, track)
+
+        for (let i = 0; i < circles.length; i++) {
+            if (i == circle_id) {
+                circles[i].draw_debug(ctx, canvas.width / 2, canvas.height / 2, canvas.size * settings.main.size, track, circle_opts)
+            } else {
+                circles[i].draw_debug(ctx, canvas.size * settings.secondary.width * (i + 0.5), canvas.size * settings.secondary.height * 0.5, canvas.size * settings.secondary.size, track, { ...circle_opts, radius0_ratio: 0.5, line: 0.02 })
+            }
+        }
+
         draw_track(ctx, track, canvas.size, now)
 
         if ("planned_freq" in track && track.planned_freq.circle_id == circle_id) {
             ctx.font = 'bold 64px sans-serif'
             ctx.fillStyle = "blue"
-            ctx.strokeStyle = background_color
+            ctx.strokeStyle = settings.background_color
             ctx.lineWidth = 5
             let str = "f" + track.planned_freq.value
             ctx.strokeText(str, 8, 72)
@@ -802,7 +871,7 @@ function draw(circle_id, pulse, now) {
             ctx.font = 'bold 64px sans-serif'
             const str = "v" + track.planned_volume.value
             ctx.fillStyle = "green"
-            ctx.strokeStyle = background_color
+            ctx.strokeStyle = settings.background_color
             ctx.lineWidth = 5
             ctx.strokeText(str, 8, 72)
             ctx.fillText(str, 8, 72)
@@ -819,7 +888,7 @@ function resize() {
     }
     document.body.className = vertical ? "vertical" : "horizontal"
     canvas.width = canvas.size
-    canvas.height = canvas.size
+    canvas.height = canvas.size * 1.4
     canvas.radius0 = canvas.size * 0.10
 }
 
@@ -904,17 +973,18 @@ function update_track(id, x, y, ts) {
         const r = Math.sqrt(x * x + y * y)
 
         const circle = circles[processed.circle_id]
+        const radius0 = canvas.size * settings.main.radius0
         
-        if (r < canvas.radius0) {
+        if (r < radius0) {
             if ("drag" in track) {
                 if(track.drag == "y") {
                     track.planned_freq = { circle_id: processed.circle_id, value: clamp((circle.freq.value - (track.end.y - track.start.y) * canvas.size * 0.00002).toFixed(1), 1, 20) }
                 }
             }
-        } else {
-            const radius_delta = canvas.size * 0.38 / Math.max(3, circle.radii_count)
+        } else if (r < canvas.size * settings.main.size) {
+            const radius_delta = (canvas.size * 0.5 - radius0) / Math.max(settings.min_radius_devider, circle.radii_count)
             for (const dot of circle.dots) {
-                if (in_limits((r - canvas.radius0) / radius_delta - dot.radius_id, 0, 1.0)) {
+                if (in_limits((r - radius0) / radius_delta - dot.radius_id, 0, 1.0)) {
                     if (track.drag == "y") {
                         const ring = circle.rings[dot.ring_id]
                         track.planned_volume = { circle_id: processed.circle_id, ring_id: dot.ring_id, value: clamp((ring.volume.value - (track.end.y - track.start.y) * canvas.size * 0.00002).toFixed(1), 0.0, 2.0) }
@@ -933,37 +1003,59 @@ function reset_tracks() {
 function end_tracks() {
     let touch_ids = Object.keys(tracks)
     if (touch_ids.length == 1) {
+
         let track = tracks[touch_ids[0]]
-        const x = track.start.x - canvas.width / 2
-        const y = track.start.y - canvas.height / 2
-        const r = Math.sqrt(x * x + y * y)
+        for (let circle_id = 0; circle_id < circles.length; circle_id++) {
+            if (circle_id == processed.circle_id) {
 
-        const circle = circles[processed.circle_id]
+                const x = track.start.x - canvas.width / 2
+                const y = track.start.y - canvas.height / 2
+                const r = Math.sqrt(x * x + y * y)
 
-        if (r < canvas.radius0) {
-            if ("drag" in track) {
-                if(track.drag == "y" && "planned_freq" in track && track.planned_freq.circle_id == processed.circle_id) {
-                    circle.update_freq(track.planned_freq.value)
-                }
-            } else {
-                    toggle_play()
-            }
-        } else {
-            const radius_delta = canvas.size * 0.38 / Math.max(3, circle.radii_count)
-            const p = (Math.atan2(y, x) / (2 * Math.PI) + 0.25) * circle.period
-            for (const dot of circle.dots) {
-                if (in_limits((r - canvas.radius0) / radius_delta - dot.radius_id, 0, 1.0) &&
-                    in_limits(diff_period(dot.pulse, p, circle.period), -0.5, 0.5)) {
+                const circle = circles[circle_id]
+                const radius0 = canvas.size * settings.main.radius0
 
-                    const ring = circle.rings[dot.ring_id]
+                if (r < radius0) {
                     if ("drag" in track) {
-                        if (track.drag == "y" && "planned_volume" in track && track.planned_volume.circle_id == processed.circle_id && track.planned_volume.ring_id == dot.ring_id) {
-                            ring.update_volume(track.planned_volume.value)
+                        if(track.drag == "y" && "planned_freq" in track && track.planned_freq.circle_id == circle_id) {
+                            circle.update_freq(track.planned_freq.value)
                         }
                     } else {
-                        dot.orig.update_symbol(ring.instrument.next_symbol(dot.symbol))
+                        toggle_play()
                     }
-                    break
+                } else if (r < canvas.size * settings.main.size) {
+                    const radius_delta = (canvas.size * 0.5 - radius0) / Math.max(settings.min_radius_devider, circle.radii_count)
+                    const p = (Math.atan2(y, x) / (2 * Math.PI) + 0.25) * circle.period
+                    for (const dot of circle.dots) {
+                        if (in_limits((r - radius0) / radius_delta - dot.radius_id, 0, 1.0) &&
+                            in_limits(diff_period(dot.pulse, p, circle.period), -0.5, 0.5)) {
+
+                            const ring = circle.rings[dot.ring_id]
+                            if ("drag" in track) {
+                                if (track.drag == "y" && "planned_volume" in track && track.planned_volume.circle_id == circle_id && track.planned_volume.ring_id == dot.ring_id) {
+                                    ring.update_volume(track.planned_volume.value)
+                                }
+                            } else {
+                                dot.orig.update_symbol(ring.instrument.next_symbol(dot.symbol))
+                            }
+                            break
+                        }
+                    }
+                }
+            } else {
+
+                const x = track.start.x - canvas.size * settings.secondary.width * (circle_id + 0.5)
+                const y = track.start.y - canvas.size * settings.secondary.height * 0.5
+                const r = Math.sqrt(x * x + y * y)
+
+                if (r < canvas.size * settings.secondary.size * 0.5) {
+                    if (!("drag" in track)) {
+                        checkpoint.ts = checkpoint.ts ? processed.ts + settings.start_shift : 0
+                        checkpoint.circle_id = circle_id
+                        checkpoint.pulse = 0
+                        circles.forEach(c => c.reset_played())
+                        console.log(`jump to circle=${circle_id} ts=${processed.ts.toFixed(2)}`)
+                    }
                 }
             }
         }
