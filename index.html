@@ -1,6 +1,5 @@
 <html>
 <head>
-<script>const VERSION="v0.0.1"</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.1.2/howler.core.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.48.4/codemirror.min.js"></script>
@@ -81,8 +80,6 @@ nav a{
     flex-grow: 1;
     align-self: stretch;
 }
-#canvas {
-}
 .CodeMirror {
     font-size: 20px;
 }
@@ -113,25 +110,49 @@ nav a{
     font-family: monospace;
     grid-column: 2 / 3;
 }
+#catalog ul {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    padding: 16px 36px;
+    list-style-type: none;
+}
+#catalog li {
+    text-align: center;
+    font-family: sans-serif;
+    font-size: 2em;
+    margin-bottom: 0.5em;
+    background-color: #dee6ff;
+    padding: 0.1em 0;
+}
 </style>
 </head>
 <body>
+
 <header></header>
-<main id=catalog>
+
+<main id="catalog">
     <h1>Catalog</h1>
+    <ul></ul>
 </main>
-<main id=home class=active>
-<canvas id=canvas></canvas>
+
+<main id="play" class="active">
+    <canvas id="canvas"></canvas>
 </main>
-<main id=code>
-<div id=editor></div>
+
+<main id="code">
+    <div id="editor"></div>
 </main>
-<main id=clone>
-    <h1>Clone</h1>
+
+<main id="clone">
+  <h1>Clone</h1>
 </main>
-<main id=settings>
+
+<main id="settings">
     <h1>Settings</h1>
+    <form></form>
 </main>
+
 <footer>
     <nav>
         <a href="#catalog">
@@ -139,7 +160,7 @@ nav a{
                 <path d="M8.627,7.885C8.499,8.388,7.873,8.101,8.13,8.177L4.12,7.143c-0.218-0.057-0.351-0.28-0.293-0.498c0.057-0.218,0.279-0.351,0.497-0.294l4.011,1.037C8.552,7.444,8.685,7.667,8.627,7.885 M8.334,10.123L4.323,9.086C4.105,9.031,3.883,9.162,3.826,9.38C3.769,9.598,3.901,9.82,4.12,9.877l4.01,1.037c-0.262-0.062,0.373,0.192,0.497-0.294C8.685,10.401,8.552,10.18,8.334,10.123 M7.131,12.507L4.323,11.78c-0.218-0.057-0.44,0.076-0.497,0.295c-0.057,0.218,0.075,0.439,0.293,0.495l2.809,0.726c-0.265-0.062,0.37,0.193,0.495-0.293C7.48,12.784,7.35,12.562,7.131,12.507M18.159,3.677v10.701c0,0.186-0.126,0.348-0.306,0.393l-7.755,1.948c-0.07,0.016-0.134,0.016-0.204,0l-7.748-1.948c-0.179-0.045-0.306-0.207-0.306-0.393V3.677c0-0.267,0.249-0.461,0.509-0.396l7.646,1.921l7.654-1.921C17.91,3.216,18.159,3.41,18.159,3.677 M9.589,5.939L2.656,4.203v9.857l6.933,1.737V5.939z M17.344,4.203l-6.939,1.736v9.859l6.939-1.737V4.203z M16.168,6.645c-0.058-0.218-0.279-0.351-0.498-0.294l-4.011,1.037c-0.218,0.057-0.351,0.28-0.293,0.498c0.128,0.503,0.755,0.216,0.498,0.292l4.009-1.034C16.092,7.085,16.225,6.863,16.168,6.645 M16.168,9.38c-0.058-0.218-0.279-0.349-0.498-0.294l-4.011,1.036c-0.218,0.057-0.351,0.279-0.293,0.498c0.124,0.486,0.759,0.232,0.498,0.294l4.009-1.037C16.092,9.82,16.225,9.598,16.168,9.38 M14.963,12.385c-0.055-0.219-0.276-0.35-0.495-0.294l-2.809,0.726c-0.218,0.056-0.351,0.279-0.293,0.496c0.127,0.506,0.755,0.218,0.498,0.293l2.807-0.723C14.89,12.825,15.021,12.603,14.963,12.385"></path>
             </svg>
         </a>
-        <a href="#home">
+        <a href="#play">
             <svg class="svg-icon" viewBox="0 0 20 20">
                 <path d="M16.899,3.05c-0.085-0.068-0.192-0.095-0.299-0.074L7.947,4.779c-0.17,0.034-0.291,0.182-0.291,0.353v7.364c-0.494-0.536-1.199-0.873-1.983-0.873c-1.491,0-2.704,1.213-2.704,2.704s1.213,2.704,2.704,2.704c1.491,0,2.705-1.213,2.705-2.704V7.952l7.933-1.659v4.399c-0.494-0.535-1.199-0.873-1.983-0.873c-1.491,0-2.704,1.213-2.704,2.704c0,1.492,1.213,2.705,2.704,2.705c1.49,0,2.704-1.213,2.704-2.705V3.33C17.031,3.221,16.982,3.119,16.899,3.05 M5.673,16.311c-1.094,0-1.983-0.889-1.983-1.983s0.889-1.983,1.983-1.983c1.095,0,1.983,0.889,1.983,1.983S6.768,16.311,5.673,16.311 M14.327,14.508c-1.095,0-1.983-0.889-1.983-1.984c0-1.094,0.889-1.982,1.983-1.982c1.094,0,1.983,0.889,1.983,1.982C16.311,13.619,15.421,14.508,14.327,14.508 M16.311,5.558L8.377,7.217V5.428l7.933-1.659V5.558z"></path>
             </svg>
@@ -164,6 +185,9 @@ nav a{
 <script>
 
 "use strict";
+
+const VERSION = "v0.0.2"
+
 
 var canvas = document.getElementById("canvas")
 
@@ -259,7 +283,7 @@ const settings = new Settings (VERSION, [
 
     new Param("volume_mix.factor", 0.3),
     new Param("volume_mix.shift", 0.2),
-    new Param("min_radius_devider", 3),
+    new Param("min_radius_devider", 4),
     new Param("play_range.draw.0", -0.1),
     new Param("play_range.draw.1", 0.9),
     new Param("play_range.sound.0", -0.1),
@@ -277,8 +301,7 @@ const settings = new Settings (VERSION, [
 
 settings.load(localStorage.getItem("settings"))
 
-var form = document.createElement("form")
-document.getElementById("settings").append(form)
+var form = document.querySelector("#settings form")
 form.addEventListener("change", on_form_change)
 
 function on_form_change(e) {
@@ -517,6 +540,11 @@ class Circle {
         opts = { style: "full", ...opts }
         if (!("shadow" in opts) || opts.shadow != null) {
             Circle.draw_shadow(ctx, x, y, size, opts.shadow)
+        } else {
+            ctx.beginPath()
+            ctx.arc(x, y, size * 0.5, 0, 2 * Math.PI)
+            ctx.fillStyle = settings.background_color
+            ctx.fill()
         }
         if (opts.style == "full") {
             this.draw_dots(ctx, x, y, size, pulse, opts)
@@ -810,154 +838,295 @@ function split_chars(text) {
     return res
 }
 
-function parse_rhythm (text) {
-    let circles = []
-    let rings = []
-    let symbols = []
-    let circle_name = null
-    let ring_name = null
-    let circle_opts = {}
-    let ring_opts = {}
-
-    let freq_overwrite = null
-
-    function valid_circle(name, rings) {
-        return name && name.length && rings.length
+class Rhythm {
+    constructor(name, text) {
+        this.name = name
+        this.parse(text)
     }
 
-    function valid_ring(name, symbols) {
-        return name && name.value in instruments && symbols.length
-    }
-
-    function to_symbols(pos, pattern) {
+    parse (text) {
+        this.text = text
+        this.circles = []
+        let rings = []
         let symbols = []
-        for (let c of split_chars(pattern)) {
-            if (!/\s+/.test(c.content)) {
-                symbols.push(new Parsed(text, pos + c.pos, c.content.length, c.content))
+        let circle_name = null
+        let ring_name = null
+        let circle_opts = {}
+        let ring_opts = {}
+
+        let freq_overwrite = null
+
+        function valid_circle(name, rings) {
+            return name && name.length && rings.length
+        }
+
+        function valid_ring(name, symbols) {
+            return name && name.value in instruments && symbols.length
+        }
+
+        function to_symbols(pos, pattern) {
+            let symbols = []
+            for (let c of split_chars(pattern)) {
+                if (!/\s+/.test(c.content)) {
+                    symbols.push(new Parsed(text, pos + c.pos, c.content.length, c.content))
+                }
+            }
+            return symbols
+        }
+
+        for (let line of split_lines(text)) {
+            if (line.index == 0 && /^#!/.test(line.content)) {
+                for (let token of split_words(line.content.substring(2))) {
+                    const res = token.content.match(/^f(\d*\.?\d+)$/)
+                    if (res) {
+                        freq_overwrite = new Parsed(text, line.pos + token.pos + 3, res[1].length, parseFloat(res[1]))
+                    }
+                }
+            } else {
+                const cleaned = line.content.replace(/#.*$/, "")
+
+                let res = cleaned.match(/^(\d+)\.(.*)$/)
+                if (res) {
+                    if (valid_ring(ring_name, symbols)) {
+                        rings.push(new Ring(ring_name, instruments[ring_name.value], symbols, ring_opts))
+                    }
+                    if (valid_circle(circle_name, rings)) {
+                        this.circles.push(new Circle(circle_name, rings, circle_opts))
+                    }
+                    circle_name = new Parsed(text, line.pos, res[1].length, res[1])
+                    symbols = []
+                    ring_name = null
+                    ring_opts = {}
+                    rings = []
+                    circle_opts = {}
+
+                    const opt_pos = line.pos + res[1].length + 1
+                    for (let token of split_words(res[2])) {
+                        let res = token.content.match(/^f(\d*\.?\d+)$/)
+                        if (res) {
+                            circle_opts.freq = new Parsed(text, opt_pos + token.pos + 1, res[1].length, parseFloat(res[1]))
+                            continue
+                        }
+                        res = token.content.match(/^x(\d+)$/)
+                        if (res) {
+                            circle_opts.repeats = new Parsed(text, opt_pos + token.pos + 1, res[1].length, parseInt(res[1]))
+                            continue
+                        }
+                    }
+                    continue
+                }
+
+                res = cleaned.match(/^([^:\s][^:]*):(.*)$/)
+                if (res) {
+                    if (valid_ring(ring_name, symbols)) {
+                        rings.push(new Ring(ring_name, instruments[ring_name.value], symbols, ring_opts))
+                    }
+                    const tokens = split_words(res[1])
+                    ring_name = new Parsed(text, line.pos + tokens[0].pos, tokens[0].content.length, tokens[0].content)
+                    symbols = to_symbols(line.pos + res[1].length + 1, res[2])
+                    ring_opts = {}
+                    for (let token of tokens.slice(1)) {
+                        const res = token.content.match(/^v(\d*\.?\d+)$/)
+                        if (res) {
+                            ring_opts.volume = new Parsed(text, line.pos + token.pos + 1, res[1].length, parseFloat(res[1]))
+                        }
+                    }
+                    continue
+                }
+
+                symbols = symbols.concat(to_symbols(line.pos, cleaned))
             }
         }
-        return symbols
+
+        if (valid_ring(ring_name, symbols)) {
+            rings.push(new Ring(ring_name, instruments[ring_name.value], symbols, ring_opts))
+        }
+
+        if (valid_circle(circle_name, rings)) {
+            this.circles.push(new Circle(circle_name, rings, circle_opts))
+        } else if (rings.length) {
+            this.circles.push(new Circle({ value: "" }, rings))
+        }
+        
+        this.fix_circles()
     }
 
-    for (let line of split_lines(text)) {
-        if (line.index == 0 && /^#!/.test(line.content)) {
-            for (let token of split_words(line.content.substring(2))) {
-                const res = token.content.match(/^f(\d*\.?\d+)$/)
-                if (res) {
-                    freq_overwrite = new Parsed(text, line.pos + token.pos + 3, res[1].length, parseFloat(res[1]))
+    fix_circles() {
+        if (this.circles.length) {
+            for (let circle_id = 0; circle_id < this.circles.length; circle_id++) {
+                if (this.circles[circle_id].name.value != circle_id + 1) {
+                    this.circles[circle_id].update_name(circle_id + 1)
                 }
             }
         } else {
-            const cleaned = line.content.replace(/#.*$/, "")
-
-            let res = cleaned.match(/^(\d+)\.(.*)$/)
-            if (res) {
-                if (valid_ring(ring_name, symbols)) {
-                    rings.push(new Ring(ring_name, instruments[ring_name.value], symbols, ring_opts))
-                }
-                if (valid_circle(circle_name, rings)) {
-                    circles.push(new Circle(circle_name, rings, circle_opts))
-                }
-                circle_name = new Parsed(text, line.pos, res[1].length, res[1])
-                symbols = []
-                ring_name = null
-                ring_opts = {}
-                rings = []
-                circle_opts = {}
-
-                const opt_pos = line.pos + res[1].length + 1
-                for (let token of split_words(res[2])) {
-                    let res = token.content.match(/^f(\d*\.?\d+)$/)
-                    if (res) {
-                        circle_opts.freq = new Parsed(text, opt_pos + token.pos + 1, res[1].length, parseFloat(res[1]))
-                        continue
-                    }
-                    res = token.content.match(/^x(\d+)$/)
-                    if (res) {
-                        circle_opts.repeats = new Parsed(text, opt_pos + token.pos + 1, res[1].length, parseInt(res[1]))
-                        continue
-                    }
-                }
-                continue
-            }
-
-            res = cleaned.match(/^([^:\s][^:]*):(.*)$/)
-            if (res) {
-                if (valid_ring(ring_name, symbols)) {
-                    rings.push(new Ring(ring_name, instruments[ring_name.value], symbols, ring_opts))
-                }
-                const tokens = split_words(res[1])
-                ring_name = new Parsed(text, line.pos + tokens[0].pos, tokens[0].content.length, tokens[0].content)
-                symbols = to_symbols(line.pos + res[1].length + 1, res[2])
-                ring_opts = {}
-                for (let token of tokens.slice(1)) {
-                    const res = token.content.match(/^v(\d*\.?\d+)$/)
-                    if (res) {
-                        ring_opts.volume = new Parsed(text, line.pos + token.pos + 1, res[1].length, parseFloat(res[1]))
-                    }
-                }
-                continue
-            }
-
-            symbols = symbols.concat(to_symbols(line.pos, cleaned))
+            editor.setValue("1.\nshekere:   x... x... x... x...\n")
         }
     }
-
-    if (valid_ring(ring_name, symbols)) {
-        rings.push(new Ring(ring_name, instruments[ring_name.value], symbols, ring_opts))
-    }
-
-    if (valid_circle(circle_name, rings)) {
-        circles.push(new Circle(circle_name, rings, circle_opts))
-    } else if (rings.length) {
-        circles.push(new Circle({ value: "" }, rings))
-    }
-    return circles
 }
 
-const rhythm_collection = {
-    "djole": `\
-1. f6.8 x2
-shekere:   x... x... x... x...
-2. f6.9 x4
-shekere:   x... x... x... x...
-sangban:   c... x... c... x...
-dundunba:  x... .... x.x. ....
-3. f7.0 x4
-shekere:   x... x... x... x...
-bass:      d... s... d.d. s...
-kenkeni v0.5:
-           ..xx ..xx ..xx ..xx
-4. f7.1 x8
-shekere:   x... x... x... x...
-bass:      d... s... d.d. s...
-kenkeni v0.5:
-           ..xx ..xx ..xx ..xx
-djembe:    tttt b... t.t. b...
-5. f7.2 x8
-shekere:   x... x... x... x...
-bass:      d.kk s.kk d.dk s.kk
-djembe:    ttst tstt stts ttst
-           tstt s.ss ttst tss.
-`
-}
+class Catalog {
+    constructor(version, rhythms) {
+        this.version = version
+        this.rhythms = rhythms
+        this.rhythm_id = 0
+    }
 
-const compos_name = "djole"
-const text = localStorage.getItem(compos_name) || rhythm_collection[compos_name] || ""
+    get rhythm() {
+        return this.rhythms[this.rhythm_id]
+    }
 
-
-var circles = parse_rhythm(text)
-
-function fix_circles() {
-    if (circles.length) {
-        for (let circle_id = 0; circle_id < circles.length; circle_id++) {
-            if (circles[circle_id].name.value != circle_id + 1) {
-                circles[circle_id].update_name(circle_id + 1)
+    load(text) {
+        const stored = JSON.parse(text)
+        if (!stored || !("version" in stored)) {
+            return
+        }
+        for (const [name, text] of stored.rhythms) {
+            const rhythm = new Rhythm(name, text)
+            let index = this.rhythms.findIndex(rhythm => rhythm.name == name)
+            if (index == -1) {
+                this.rhythms.push(rhythm)
+            } else {
+                this.rhythms[index] = rhythm
             }
         }
-    } else {
-        editor.setValue("1.\nshekere:   x... x... x... x...\n")
     }
+    store() {
+        return JSON.stringify({
+            version: this.version,
+            rhythms: this.rhythms.map(rhythm => [rhythm.name, rhythm.text])
+        })
+    }
+
+    switch_to(new_rhythm) {
+        let index = this.rhythms.findIndex(rhythm => rhythm.name == new_rhythm)
+        if (index == -1 || this.rhythm_id == index) {
+            return false
+        }
+        this.rhythm_id = index
+        editor.setValue(this.rhythm.text)
+        stop()
+        checkpoint.circle_id = 0
+        return true
+    }
+}
+
+const catalog = new Catalog(VERSION, [
+    new Rhythm("djole", `\
+1. x2
+shekere:
+    x... x... x... x...
+2. x4
+shekere:
+    x... x... x... x...
+sangban:
+    c... x... c... x...
+dundunba:
+    x... .... x.x. ....
+3. x4
+shekere:
+    x... x... x... x...
+bass:
+    d... s... d.d. s...
+kenkeni v0.7:
+    ..xx ..xx ..xx ..xx
+4. x8
+shekere:
+    x... x... x... x...
+bass:
+    d... s... d.d. s...
+kenkeni v0.5:
+    ..xx ..xx ..xx ..xx
+djembe:
+    tttt b... t.t. b...
+5. x4
+shekere:
+    x... x... x... x...
+bass:
+    d.kk s.kk d.dk s.kk
+djembe:
+    ttst tstt stts ttst
+    tstt s.ss ttst tss.
+`),
+    new Rhythm("balakulandjan", `\
+1. x2
+shekere:
+    x... .... x... ....
+2. x4
+shekere:
+    x... .... x... ....
+sangban:
+    .... .... ..x. x...
+dundunba:
+    x... ..x. x... ..x.
+3. x4
+shekere:
+    x... .... x... ....
+kenkeni:
+    x... x... x... x...
+bass:
+    d... ..d. d.s. s.d.
+4. x8
+shekere:
+    x... .... x... ....
+kenkeni:
+    x... x... x... x...
+bass:
+    d... ..d. d.s. s.d.
+djembe:
+    b.tt ..st t.bs .bs.
+5. x2
+shekere:
+    x... .... x... ....
+kenkeni:
+    x... x... x... x...
+bass:
+    d... ..d. d.s. s.d.
+djembe:
+    b.ss .bss b.ss ttss
+    b.ss .bss b.s. ttss
+6. x2
+shekere:
+    x... .... x... ....
+kenkeni:
+    x... x... x... x...
+bass:
+    d... ..d. d.s. s.d.
+djembe:
+    ttst tstt s.ts tts.
+    ttst tstt s.t. tts.
+7. x2
+shekere:
+    x... .... x... ....
+kenkeni:
+    x... x... x... x...
+bass:
+    d... ..d. d.s. s.d.
+djembe:
+    bsss ttss s... ss..
+    bsss ttss s.s. sstt
+8. x2
+shekere:
+    x... .... x... ....
+kenkeni:
+    x... x... x... x...
+bass:
+    d... ..d. d.s. s.d.
+djembe:
+    ..ss .s.t t.s. ss.t
+    t.ss .s.t t.s. sstt
+`),
+])
+
+catalog.load(localStorage.getItem("catalog"))
+
+var rhythm_container = document.querySelector("#catalog ul")
+for (const rhythm of catalog.rhythms) {
+    let a = document.createElement("a")
+    a.href = "#play/" + encodeURIComponent(rhythm.name)
+    a.append(rhythm.name)
+    let li = document.createElement("li")
+    li.append(a)
+    rhythm_container.append(li)
 }
 
 CodeMirror.defineMode("rhythm", function() {
@@ -978,7 +1147,7 @@ CodeMirror.defineMode("rhythm", function() {
             if (stream.match(":")) {
                 return "punctuation"
             }
-            if (stream.match(/v\d*\.?\d+/)) {
+            if (stream.match(/[vf]\d*\.?\d+/) || stream.match(/x\d+/)) {
                 return "parameter"
             }
             stream.eatWhile(/\S/)
@@ -987,7 +1156,7 @@ CodeMirror.defineMode("rhythm", function() {
     }
 })
 
-var editor = CodeMirror(document.getElementById("editor"), { mode: "rhythm", value: text, scrollbarStyle: "overlay" })
+var editor = CodeMirror(document.getElementById("editor"), { mode: "rhythm", value: catalog.rhythm.text, scrollbarStyle: "overlay" })
 function in_limits(x, l1, l2) {
     return x >= l1 && x < l2
 }
@@ -999,6 +1168,7 @@ function clamp(x, min, max) {
 function process(ts) {
     let { pulse, circle_id } = checkpoint
     if (checkpoint.ts) {
+        const circles = catalog.rhythm.circles
         let elapsed = ts - checkpoint.ts
         pulse += elapsed * circles[circle_id].freq.value / 1000
         while (pulse >= circles[circle_id].duration) {
@@ -1028,7 +1198,7 @@ function stop() {
     checkpoint.circle_id = processed.circle_id
     checkpoint.ts = 0
     checkpoint.pulse = 0
-    circles.forEach(c => {c.reset_played()})
+    catalog.rhythm.circles.forEach(c => {c.reset_played()})
 }
 
 function start() {
@@ -1094,15 +1264,21 @@ function draw(circle_id, pulse, now) {
     const ctx = canvas.getContext('2d')
     ctx.clearRect(0, 0, canvas.width, canvas.height)
 
+    const circles = catalog.rhythm.circles
+
     if (!circles.length) {
         return
     }
 
+    let thumbnail_delta = settings.thumbnail.width
+    if (circles.length > 1) {
+        thumbnail_delta = Math.min(settings.thumbnail.width, (1 - settings.thumbnail.width) / (circles.length - 1))
+    }
     for (let i = 0; i < circles.length; i++) {
         if (i == circle_id) {
             circles[i].draw(ctx, canvas.width / 2, canvas.height / 2, canvas.size * settings.main.size, pulse, null, main_opts)
         }
-        circles[i].draw(ctx, canvas.size * settings.thumbnail.width * (i + 0.5), canvas.size * settings.thumbnail.height * 0.5, canvas.size * settings.thumbnail.size, i == circle_id, i + 1, thumbnail_opts)
+        circles[i].draw(ctx, canvas.size * (settings.thumbnail.width * 0.5 + i * thumbnail_delta), canvas.size * settings.thumbnail.height * 0.5, canvas.size * settings.thumbnail.size, i == circle_id, i + 1, thumbnail_opts)
     }
 
     
@@ -1115,7 +1291,7 @@ function draw(circle_id, pulse, now) {
             if (i == circle_id) {
                 circles[i].draw_debug(ctx, canvas.width / 2, canvas.height / 2, canvas.size * settings.main.size, track, circle_opts)
             } else {
-                circles[i].draw_debug(ctx, canvas.size * settings.thumbnail.width * (i + 0.5), canvas.size * settings.thumbnail.height * 0.5, canvas.size * settings.thumbnail.size, track, { ...circle_opts, radius0_ratio: 0.5, line: 0.02 })
+                circles[i].draw_debug(ctx, canvas.size * (settings.thumbnail.width * 0.5 + i * thumbnail_delta), canvas.size * settings.thumbnail.height * 0.5, canvas.size * settings.thumbnail.size, track, { ...circle_opts, radius0_ratio: 0.5, line: 0.02 })
             }
         }
 
@@ -1154,9 +1330,8 @@ function resize() {
 
 function on_editor_change(editor) {
     const text = editor.getValue()
-    circles = parse_rhythm(text)
-    fix_circles()
-    localStorage.setItem(compos_name, text)
+    catalog.rhythm.parse(text)
+    localStorage.setItem("catalog", catalog.store())
 }
 
 
@@ -1232,7 +1407,7 @@ function update_track(id, x, y, ts) {
         const y = track.start.y - canvas.height / 2
         const r = Math.sqrt(x * x + y * y)
 
-        const circle = circles[processed.circle_id]
+        const circle = catalog.rhythm.circles[processed.circle_id]
         const radius0 = canvas.size * settings.main.radius0
         
         if (r < radius0) {
@@ -1264,7 +1439,8 @@ function end_tracks() {
     let touch_ids = Object.keys(tracks)
     if (touch_ids.length == 1) {
 
-        let track = tracks[touch_ids[0]]
+        const track = tracks[touch_ids[0]]
+        const circles = catalog.rhythm.circles
         for (let circle_id = 0; circle_id < circles.length; circle_id++) {
             if (circle_id == processed.circle_id) {
 
@@ -1304,7 +1480,11 @@ function end_tracks() {
                 }
             } else {
 
-                const x = track.start.x - canvas.size * settings.thumbnail.width * (circle_id + 0.5)
+                let thumbnail_delta = settings.thumbnail.width
+                if (circles.length > 1) {
+                    thumbnail_delta = Math.min(settings.thumbnail.width, (1 - settings.thumbnail.width) / (circles.length - 1))
+                }
+                const x = track.start.x - canvas.size * (settings.thumbnail.width * 0.5 + circle_id * thumbnail_delta)
                 const y = track.start.y - canvas.size * settings.thumbnail.height * 0.5
                 const r = Math.sqrt(x * x + y * y)
 
@@ -1367,10 +1547,35 @@ function on_editor_blur() {
 }
 
 function on_hash_change() {
-    if (location.hash == "#code") {
+    const res = location.hash.match("#([^/]+)(?:/(.*))?")
+    console.log("hash_changed", res)
+    let need_updated = false
+    let page = "play"
+
+    if (!res) {
+        need_updated = true
+    } else {
+        if (!["play", "code", "settings", "catalog", "clone"].includes(res[1])) {
+            need_updated = true
+        } else {
+            page = res[1]
+            if (res[2]) {
+                const rhythm = decodeURIComponent(res[2])
+                if (catalog.switch_to(rhythm)) {
+                    need_updated = true
+                }
+                location.hash = "#" + page
+            } else if (["play", "code", "clone"].includes(page)) {
+                need_updated = true
+            }
+        }
+    }
+
+    if (page == "code") {
         setTimeout(() => { editor.refresh(); editor.focus() }, 0)
-    } else if (!["#home","#settings","#catalog","#clone"].includes(location.hash)) {
-        history.replaceState(null, "", "#home")
+    }
+    if (need_updated) {
+        history.replaceState(null, "", "#" + page + "/" + encodeURIComponent(catalog.rhythm.name))
     }
 }
 
@@ -1397,7 +1602,6 @@ editor.on("changes", on_editor_change)
 var checkpoint = { circle_id: 0, ts: 0, pulse: 0 }
 var processed = checkpoint
 
-fix_circles()
 on_hash_change()
 update_css()
 
