@@ -125,6 +125,19 @@ nav a{
     background-color: #dee6ff;
     padding: 0.1em 0;
 }
+a.switch {
+    text-decoration: none;
+}
+a.switch,
+a.switch:visited,
+a.switch:active,
+a.switch:hover,
+a.switch:focus {
+    color: black
+}
+a.switch:hover {
+    cursor: pointer;
+}
 </style>
 </head>
 <body>
@@ -186,7 +199,7 @@ nav a{
 
 "use strict";
 
-const VERSION = "v0.0.2"
+const VERSION = "v0.0.3"
 
 
 var canvas = document.getElementById("canvas")
@@ -1051,6 +1064,8 @@ djembe:
 1. x2
 shekere:
     x... .... x... ....
+kenkeni:
+    x... x... x... x...
 2. x4
 shekere:
     x... .... x... ....
@@ -1123,6 +1138,7 @@ var rhythm_container = document.querySelector("#catalog ul")
 for (const rhythm of catalog.rhythms) {
     let a = document.createElement("a")
     a.href = "#play/" + encodeURIComponent(rhythm.name)
+    a.className = "switch"
     a.append(rhythm.name)
     let li = document.createElement("li")
     li.append(a)
@@ -1554,6 +1570,7 @@ function on_hash_change() {
 
     if (!res) {
         need_updated = true
+        location.hash = "#" + page
     } else {
         if (!["play", "code", "settings", "catalog", "clone"].includes(res[1])) {
             need_updated = true
