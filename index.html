@@ -22,13 +22,59 @@ html, body {
 }
 body {
     display: flex;
-    align-items: center;
+    align-items: stretch;
 }
-body.horizontal {
+body.portrate {
     flex-direction: column;
 }
-body.vertical {
+body.ladscape {
     flex-direction: row;
+}
+h1 {
+    font-family: sans-serif;
+    margin: 4px 16px;
+}
+:root {
+    --header-height: 24px;
+    --footer-height: 48px;
+}
+footer {
+    max-height: var(--footer-height);
+    min-height: var(--footer-height);
+}
+header {
+    max-height: var(--header-height);
+    min-height: var(--header-height);
+}
+main {
+    display: none;
+    flex-grow: 1;
+}
+main:target {
+    display: block;
+}
+footer nav {
+    display: flex;
+    justify-content: space-evenly;
+    align-items: center;
+}
+nav a{
+    display: block;
+    padding: 4px;
+}
+.svg-icon {
+  width: 2em;
+  height: 2em;
+}
+.svg-icon path,
+.svg-icon polygon,
+.svg-icon rect {
+  fill: #4691f6;
+}
+
+.svg-icon circle {
+  stroke: #4691f6;
+  stroke-width: 1;
 }
 #editor {
     flex-grow: 1;
@@ -52,42 +98,198 @@ body.vertical {
 .cm-s-default .cm-comment     { color: #488; }
 .cm-s-default .cm-parameter   { color: #a1a; }
 
+#settings form {
+    display: grid;
+    grid-template-columns: 70% 30%;
+    grid-gap: 4px;
+    margin: 8px;
+}
+#settings form label {
+    font-family: monospace;
+    grid-column: 1 / 2;
+}
+#settings form input {
+    font-family: monospace;
+    grid-column: 2 / 3;
+}
 </style>
 </head>
 <body>
-<canvas id=canvas>
-</canvas>
-<div id=editor>
-</div>
-
+<header></header>
+<main id=catalog>
+    <h1>Catalog</h1>
+</main>
+<main id=home class=active>
+<canvas id=canvas></canvas>
+</main>
+<main id=code>
+<div id=editor></div>
+</main>
+<main id=clone>
+    <h1>Clone</h1>
+</main>
+<main id=settings>
+    <h1>Settings</h1>
+</main>
+<footer>
+    <nav>
+        <a href="#catalog">
+            <svg class="svg-icon" viewBox="0 0 20 20">
+                <path d="M8.627,7.885C8.499,8.388,7.873,8.101,8.13,8.177L4.12,7.143c-0.218-0.057-0.351-0.28-0.293-0.498c0.057-0.218,0.279-0.351,0.497-0.294l4.011,1.037C8.552,7.444,8.685,7.667,8.627,7.885 M8.334,10.123L4.323,9.086C4.105,9.031,3.883,9.162,3.826,9.38C3.769,9.598,3.901,9.82,4.12,9.877l4.01,1.037c-0.262-0.062,0.373,0.192,0.497-0.294C8.685,10.401,8.552,10.18,8.334,10.123 M7.131,12.507L4.323,11.78c-0.218-0.057-0.44,0.076-0.497,0.295c-0.057,0.218,0.075,0.439,0.293,0.495l2.809,0.726c-0.265-0.062,0.37,0.193,0.495-0.293C7.48,12.784,7.35,12.562,7.131,12.507M18.159,3.677v10.701c0,0.186-0.126,0.348-0.306,0.393l-7.755,1.948c-0.07,0.016-0.134,0.016-0.204,0l-7.748-1.948c-0.179-0.045-0.306-0.207-0.306-0.393V3.677c0-0.267,0.249-0.461,0.509-0.396l7.646,1.921l7.654-1.921C17.91,3.216,18.159,3.41,18.159,3.677 M9.589,5.939L2.656,4.203v9.857l6.933,1.737V5.939z M17.344,4.203l-6.939,1.736v9.859l6.939-1.737V4.203z M16.168,6.645c-0.058-0.218-0.279-0.351-0.498-0.294l-4.011,1.037c-0.218,0.057-0.351,0.28-0.293,0.498c0.128,0.503,0.755,0.216,0.498,0.292l4.009-1.034C16.092,7.085,16.225,6.863,16.168,6.645 M16.168,9.38c-0.058-0.218-0.279-0.349-0.498-0.294l-4.011,1.036c-0.218,0.057-0.351,0.279-0.293,0.498c0.124,0.486,0.759,0.232,0.498,0.294l4.009-1.037C16.092,9.82,16.225,9.598,16.168,9.38 M14.963,12.385c-0.055-0.219-0.276-0.35-0.495-0.294l-2.809,0.726c-0.218,0.056-0.351,0.279-0.293,0.496c0.127,0.506,0.755,0.218,0.498,0.293l2.807-0.723C14.89,12.825,15.021,12.603,14.963,12.385"></path>
+            </svg>
+        </a>
+        <a href="#home">
+            <svg class="svg-icon" viewBox="0 0 20 20">
+                <path d="M16.899,3.05c-0.085-0.068-0.192-0.095-0.299-0.074L7.947,4.779c-0.17,0.034-0.291,0.182-0.291,0.353v7.364c-0.494-0.536-1.199-0.873-1.983-0.873c-1.491,0-2.704,1.213-2.704,2.704s1.213,2.704,2.704,2.704c1.491,0,2.705-1.213,2.705-2.704V7.952l7.933-1.659v4.399c-0.494-0.535-1.199-0.873-1.983-0.873c-1.491,0-2.704,1.213-2.704,2.704c0,1.492,1.213,2.705,2.704,2.705c1.49,0,2.704-1.213,2.704-2.705V3.33C17.031,3.221,16.982,3.119,16.899,3.05 M5.673,16.311c-1.094,0-1.983-0.889-1.983-1.983s0.889-1.983,1.983-1.983c1.095,0,1.983,0.889,1.983,1.983S6.768,16.311,5.673,16.311 M14.327,14.508c-1.095,0-1.983-0.889-1.983-1.984c0-1.094,0.889-1.982,1.983-1.982c1.094,0,1.983,0.889,1.983,1.982C16.311,13.619,15.421,14.508,14.327,14.508 M16.311,5.558L8.377,7.217V5.428l7.933-1.659V5.558z"></path>
+            </svg>
+        </a>
+        <a href="#code">
+                <svg class="svg-icon" viewBox="0 0 20 20">
+                    <path d="M18.303,4.742l-1.454-1.455c-0.171-0.171-0.475-0.171-0.646,0l-3.061,3.064H2.019c-0.251,0-0.457,0.205-0.457,0.456v9.578c0,0.251,0.206,0.456,0.457,0.456h13.683c0.252,0,0.457-0.205,0.457-0.456V7.533l2.144-2.146C18.481,5.208,18.483,4.917,18.303,4.742 M15.258,15.929H2.476V7.263h9.754L9.695,9.792c-0.057,0.057-0.101,0.13-0.119,0.212L9.18,11.36h-3.98c-0.251,0-0.457,0.205-0.457,0.456c0,0.253,0.205,0.456,0.457,0.456h4.336c0.023,0,0.899,0.02,1.498-0.127c0.312-0.077,0.55-0.137,0.55-0.137c0.08-0.018,0.155-0.059,0.212-0.118l3.463-3.443V15.929z M11.241,11.156l-1.078,0.267l0.267-1.076l6.097-6.091l0.808,0.808L11.241,11.156z"></path>
+                </svg>
+        </a>
+        <a href="#clone">
+            <svg class="svg-icon" viewBox="0 0 20 20">
+                <path d="M17.391,2.406H7.266c-0.232,0-0.422,0.19-0.422,0.422v3.797H3.047c-0.232,0-0.422,0.19-0.422,0.422v10.125c0,0.232,0.19,0.422,0.422,0.422h10.125c0.231,0,0.422-0.189,0.422-0.422v-3.797h3.797c0.232,0,0.422-0.19,0.422-0.422V2.828C17.812,2.596,17.623,2.406,17.391,2.406 M12.749,16.75h-9.28V7.469h3.375v5.484c0,0.231,0.19,0.422,0.422,0.422h5.483V16.75zM16.969,12.531H7.688V3.25h9.281V12.531z"></path>
+            </svg>
+        </a>
+        <a href="#settings">
+            <svg class="svg-icon" viewBox="0 0 20 20">
+                <path d="M17.498,11.697c-0.453-0.453-0.704-1.055-0.704-1.697c0-0.642,0.251-1.244,0.704-1.697c0.069-0.071,0.15-0.141,0.257-0.22c0.127-0.097,0.181-0.262,0.137-0.417c-0.164-0.558-0.388-1.093-0.662-1.597c-0.075-0.141-0.231-0.22-0.391-0.199c-0.13,0.02-0.238,0.027-0.336,0.027c-1.325,0-2.401-1.076-2.401-2.4c0-0.099,0.008-0.207,0.027-0.336c0.021-0.158-0.059-0.316-0.199-0.391c-0.503-0.274-1.039-0.498-1.597-0.662c-0.154-0.044-0.32,0.01-0.416,0.137c-0.079,0.106-0.148,0.188-0.22,0.257C11.244,2.956,10.643,3.207,10,3.207c-0.642,0-1.244-0.25-1.697-0.704c-0.071-0.069-0.141-0.15-0.22-0.257C7.987,2.119,7.821,2.065,7.667,2.109C7.109,2.275,6.571,2.497,6.07,2.771C5.929,2.846,5.85,3.004,5.871,3.162c0.02,0.129,0.027,0.237,0.027,0.336c0,1.325-1.076,2.4-2.401,2.4c-0.098,0-0.206-0.007-0.335-0.027C3.001,5.851,2.845,5.929,2.77,6.07C2.496,6.572,2.274,7.109,2.108,7.667c-0.044,0.154,0.01,0.32,0.137,0.417c0.106,0.079,0.187,0.148,0.256,0.22c0.938,0.936,0.938,2.458,0,3.394c-0.069,0.072-0.15,0.141-0.256,0.221c-0.127,0.096-0.181,0.262-0.137,0.416c0.166,0.557,0.388,1.096,0.662,1.596c0.075,0.143,0.231,0.221,0.392,0.199c0.129-0.02,0.237-0.027,0.335-0.027c1.325,0,2.401,1.076,2.401,2.402c0,0.098-0.007,0.205-0.027,0.334C5.85,16.996,5.929,17.154,6.07,17.23c0.501,0.273,1.04,0.496,1.597,0.66c0.154,0.047,0.32-0.008,0.417-0.137c0.079-0.105,0.148-0.186,0.22-0.256c0.454-0.453,1.055-0.703,1.697-0.703c0.643,0,1.244,0.25,1.697,0.703c0.071,0.07,0.141,0.15,0.22,0.256c0.073,0.098,0.188,0.152,0.307,0.152c0.036,0,0.073-0.004,0.109-0.016c0.558-0.164,1.096-0.387,1.597-0.66c0.141-0.076,0.22-0.234,0.199-0.393c-0.02-0.129-0.027-0.236-0.027-0.334c0-1.326,1.076-2.402,2.401-2.402c0.098,0,0.206,0.008,0.336,0.027c0.159,0.021,0.315-0.057,0.391-0.199c0.274-0.5,0.496-1.039,0.662-1.596c0.044-0.154-0.01-0.32-0.137-0.416C17.648,11.838,17.567,11.77,17.498,11.697 M16.671,13.334c-0.059-0.002-0.114-0.002-0.168-0.002c-1.749,0-3.173,1.422-3.173,3.172c0,0.053,0.002,0.109,0.004,0.166c-0.312,0.158-0.64,0.295-0.976,0.406c-0.039-0.045-0.077-0.086-0.115-0.123c-0.601-0.6-1.396-0.93-2.243-0.93s-1.643,0.33-2.243,0.93c-0.039,0.037-0.077,0.078-0.116,0.123c-0.336-0.111-0.664-0.248-0.976-0.406c0.002-0.057,0.004-0.113,0.004-0.166c0-1.75-1.423-3.172-3.172-3.172c-0.054,0-0.11,0-0.168,0.002c-0.158-0.312-0.293-0.639-0.405-0.975c0.044-0.039,0.085-0.078,0.124-0.115c1.236-1.236,1.236-3.25,0-4.486C3.009,7.719,2.969,7.68,2.924,7.642c0.112-0.336,0.247-0.664,0.405-0.976C3.387,6.668,3.443,6.67,3.497,6.67c1.75,0,3.172-1.423,3.172-3.172c0-0.054-0.002-0.11-0.004-0.168c0.312-0.158,0.64-0.293,0.976-0.405C7.68,2.969,7.719,3.01,7.757,3.048c0.6,0.6,1.396,0.93,2.243,0.93s1.643-0.33,2.243-0.93c0.038-0.039,0.076-0.079,0.115-0.123c0.336,0.112,0.663,0.247,0.976,0.405c-0.002,0.058-0.004,0.114-0.004,0.168c0,1.749,1.424,3.172,3.173,3.172c0.054,0,0.109-0.002,0.168-0.004c0.158,0.312,0.293,0.64,0.405,0.976c-0.045,0.038-0.086,0.077-0.124,0.116c-0.6,0.6-0.93,1.396-0.93,2.242c0,0.847,0.33,1.645,0.93,2.244c0.038,0.037,0.079,0.076,0.124,0.115C16.964,12.695,16.829,13.021,16.671,13.334 M10,5.417c-2.528,0-4.584,2.056-4.584,4.583c0,2.529,2.056,4.584,4.584,4.584s4.584-2.055,4.584-4.584C14.584,7.472,12.528,5.417,10,5.417 M10,13.812c-2.102,0-3.812-1.709-3.812-3.812c0-2.102,1.71-3.812,3.812-3.812c2.102,0,3.812,1.71,3.812,3.812C13.812,12.104,12.102,13.812,10,13.812"></path>
+            </svg>
+        </a>
+    </nav>
+</footer>
 <script>
 
 "use strict";
 
 var canvas = document.getElementById("canvas")
 
-const settings = {
-    background_color: "white",
-    low_vol_color: "#eee",
-    muted_color: "#ddd",
-    dot_color: "#444",
-    dot_dim_color: "#888",
-    start_shift: 10,
-
-    volume_mix: v => v / 2 * 0.6 + 0.2,
-    min_radius_devider: 3,
-    play_range: {
-        draw: [-0.1, 0.9]
-    },
-    main: {
-        size: 0.95,
-        radius0: 0.1
-    },
-    secondary: {
-        height: 0.2,
-        width: 0.2,
-        size: 0.17
+class Settings {
+    constructor(version, params) {
+        this.version = version
+        this.params = params
+        for (const param of this.params) {
+            this.set(param.name, param.value)
+        }
     }
+
+    load(text) {
+        const stored = JSON.parse(text)
+        if (!("version" in stored)) {
+            return
+        }
+        for (const [name, value] of stored.entries) {
+            this.set(name, value, { existing: true })
+        }
+    }
+
+    store() {
+        return JSON.stringify({
+            version: this.version,
+            entries: this.params.map(param => [param.name, this.get(param.name)])
+        })
+    }
+
+    set (path, value, opts) {
+        opts = { ...opts }
+        const keys = path.split('.')
+        let obj = this
+        for(let i = 0; i < keys.length; i++) {
+            if (!(keys[i] in obj)) {
+                if (opts.existing) {
+                    return
+                }
+                if (i != keys.length - 1) {
+                    obj[keys[i]] = {}
+                }
+            }
+            if (i == keys.length - 1) {
+                obj[keys[i]] = value
+            } else {
+                obj = obj[keys[i]]
+            }
+        }
+    }
+
+    get (path, not_found) {
+        const keys = path.split('.')
+        let obj = this
+        for(let i = 0; i < keys.length; i++) {
+            if (!(keys[i] in obj)) {
+                return not_found
+            }
+            if (i == keys.length - 1) {
+                return obj[keys[i]]
+            } else {
+                obj = obj[keys[i]]
+            }
+        }
+    }
+
+}
+
+class Param {
+    constructor(name, value) {
+        this.name = name
+        this.value = value
+    }
+}
+
+const settings = new Settings ("v0.0.1", [
+
+    new Param("background_color", "white"),
+    new Param("low_vol_color", "#eee"),
+    new Param("muted_color", "#ddd"),
+    new Param("dot_color", "#444"),
+    new Param("dot_dim_color", "#888"),
+
+    new Param("header_height", 40),
+    new Param("footer_height", 48),
+    new Param("start_shift", 10),
+
+    new Param("volume_mix.factor", 0.3),
+    new Param("volume_mix.shift", 0.2),
+    new Param("min_radius_devider", 3),
+    new Param("play_range.draw.0", -0.1),
+    new Param("play_range.draw.1", 0.9),
+    new Param("play_range.sound.0", -0.1),
+    new Param("play_range.sound.1", 0.3),
+    new Param("play_range.prev_round", 0.5),
+    new Param("main.size", 0.95),
+    new Param("main.radius0", 0.1),
+    new Param("thumbnail.height", 0.2),
+    new Param("thumbnail.width", 0.2),
+    new Param("thumbnail.size", 0.17),
+    new Param("thumbnail.style", "simple"),
+    new Param("thumbnail.radius0", 0.3),
+    new Param("thumbnail.shadow", 5),
+])
+
+settings.load(window.localStorage.getItem("settings"))
+
+var form = document.createElement("form")
+document.getElementById("settings").append(form)
+form.addEventListener("change", on_form_change)
+
+function on_form_change(e) {
+    console.log(`setting ${e.target.name}="${e.target.value}"`)
+    settings.set(e.target.name, e.target.value)
+    update_css()
+    window.localStorage.setItem("settings", settings.store())
+}
+
+
+
+for (let param of settings.params) {
+    let label = document.createElement("label")
+    label.for = param.name
+    label.append(param.name)
+    let input = document.createElement("input")
+    input.name = param.name
+    input.value = settings.get(param.name)
+    form.append(label, input)
 }
 
 class Dot {
@@ -274,8 +476,8 @@ class Circle {
             let ring_reported = false
             for (let dot of ring.dots) {
                 if (ring.volume.value > 0 && dot.active
-                    && in_limits((pulse - dot.pulse) % ring.period, -0.1, 0.3)
-                    && (dot.played_pulse ==  null || pulse - dot.played_pulse > ring.period - 0.5)) {
+                    && in_limits((pulse - dot.pulse) % ring.period, settings.play_range.sound[0], settings.play_range.sound[1])
+                    && (dot.played_pulse ==  null || pulse - dot.played_pulse > ring.period - settings.play_range.prev_round)) {
 
                     /***
                     played = true
@@ -304,30 +506,46 @@ class Circle {
     }
     
     draw (ctx, x, y, size, pulse, label, opts) {
-        const label_opts = { color: "#469", font: 5, outline: 0.02 }
-        const shadow = { color: '#532', blur: 5, offset_x: 0.05, size: 1.0 }
-        opts = { dot: 0.012, dot_line: 0.012, sep_line: 0.006, radii_line: 0.006, shadow, label: label_opts, ...opts }
+        opts = { style: "full", ...opts }
+        if (!("shadow" in opts) || opts.shadow != null) {
+            Circle.draw_shadow(ctx, x, y, size, opts.shadow)
+        }
+        if (opts.style == "full") {
+            this.draw_dots(ctx, x, y, size, pulse, opts)
+        } else if (opts.style == "simple") {
+            this.draw_simple(ctx, x, y, size, pulse, opts)
+        } else {
+            if (pulse !== true) {
+                opts.label = { ...opts.label, dim: true }
+            }
+        }
+        Circle.draw_label(ctx, x, y, size * opts.radius0_ratio, label, opts.label)
+    }
+
+    static draw_shadow (ctx, x, y, size, opts) {
+        opts = { color: '#532', blur: 5, offset_y: 0.05, size: 1.0, ...opts }
+        ctx.save()
+        ctx.shadowColor = opts.color
+        ctx.shadowBlur = opts.blur
+        ctx.shadowOffsetY = size * opts.offset_y
+        ctx.beginPath()
+        ctx.arc(x, y, size * opts.size * 0.5, 0, 2 * Math.PI)
+        ctx.fillStyle = settings.background_color
+        ctx.fill()
+        ctx.restore()
+    }
+
+    draw_dots (ctx, x, y, size, pulse, opts) {
+        opts = { dot: 0.012, dot_line: 0.012, sep_line: 0.006, radii_line: 0.006, ...opts }
         const angle_delta = 2.0 * Math.PI / this.period
         const radius0 = size * opts.radius0_ratio
         const dot_size = size * opts.dot
         const radius_delta = (size * 0.5 - radius0) / Math.max(opts.min_radius_devider, this.radii_count)
         const radius1 = radius0 + this.radii_count * radius_delta
 
+     
         ctx.save()
         ctx.translate(x, y)
-
-        if (opts.shadow) {
-            ctx.save()
-            ctx.shadowColor = opts.shadow.color
-            ctx.shadowBlur = opts.shadow.blur
-            ctx.shadowOffsetY = size * opts.shadow.offset_x
-            ctx.beginPath()
-            ctx.arc(0, 0, size * opts.shadow.size * 0.5, 0, 2 * Math.PI)
-            ctx.fillStyle = settings.background_color
-            ctx.fill()
-            ctx.restore()
-        }
-     
 
         for (const dot of this.dots) {
             ctx.save()
@@ -343,7 +561,7 @@ class Circle {
             ctx.closePath()
             if (dot.volume > 0) {
                 const color = palette[dot.ring_id % palette.length]
-                ctx.fillStyle = playing ? chroma(color).darken().saturate() : chroma.mix(settings.low_vol_color, color, settings.volume_mix(dot.volume))
+                ctx.fillStyle = playing ? chroma(color).darken().saturate() : chroma.mix(settings.low_vol_color, color, settings.volume_mix.factor * dot.volume + settings.volume_mix.shift)
             } else {
                 ctx.fillStyle = settings.muted_color
             }
@@ -409,17 +627,28 @@ class Circle {
             ctx.stroke()
         }
 
+        ctx.restore()
+    }
+
+    static draw_label (ctx, x, y, size, label, opts) {
+        opts = { color: "#469", font: 2, outline: 0.1, ...opts }
+        if (opts.dim) {
+            opts.color = chroma.mix(settings.low_vol_color, opts.color, settings.volume_mix.factor + settings.volume_mix.shift)
+        }
+        ctx.save()
+        ctx.translate(x, y)
+
         if (label) {
             ctx.textAlign = "center"
             ctx.textBaseline = "middle"
-            ctx.font = 'bold '+ Math.floor(radius0 * opts.label.font) + 'px sans-serif'
-            ctx.fillStyle  = opts.label.color
+            ctx.font = 'bold '+ Math.floor(size * opts.font) + 'px sans-serif'
+            ctx.fillStyle  = opts.color
             ctx.strokeStyle = settings.background_color
-            ctx.lineWidth = size * opts.label.outline * 2
-            ctx.strokeText(label, 0, radius0 * opts.label.font * 0.1)
-            ctx.fillText(label, 0, radius0 * opts.label.font * 0.1)
+            ctx.lineWidth = size * opts.outline * 2
+            ctx.strokeText(label, 0, size * opts.font * 0.1)
+            ctx.fillText(label, 0, size * 0.15)
         } else {
-            const shape_size = radius0 * 0.4
+            const shape_size = size * 0.4
             ctx.beginPath()
             if (checkpoint.ts) {
                 ctx.moveTo(0 - shape_size, 0 - shape_size)
@@ -433,12 +662,34 @@ class Circle {
             }
             ctx.closePath()
             ctx.lineJoin = "round"
-            ctx.lineWidth = size * 0.015
+            ctx.lineWidth = size * 0.15
             ctx.strokeStyle = "#469"
             ctx.stroke()
         }
-        
+
         ctx.restore()
+    }
+
+    draw_simple (ctx, x, y, size, pulse, opts) {
+        opts = { sep_line: 0.006, ...opts }
+        const radius0 = size * opts.radius0_ratio
+        const radius_delta = (size * 0.5 - radius0) / Math.max(opts.min_radius_devider, this.radii_count)
+
+        ctx.lineWidth = radius_delta - size * opts.sep_line
+        const seen_radius = {}
+        for (const dot of this.dots) {
+            if (seen_radius[dot.radius_id]) {
+                continue
+            }
+            seen_radius[dot.radius_id] = true
+
+            const color = palette[dot.ring_id % palette.length]
+            ctx.strokeStyle = pulse === true ? chroma(color).darken().saturate() : chroma.mix(settings.low_vol_color, color, settings.volume_mix.factor + settings.volume_mix.shift)
+
+            ctx.beginPath()
+            ctx.arc(x, y, radius0 + (dot.radius_id + 0.5) * radius_delta, 0, 2 * Math.PI)
+            ctx.stroke()
+        }
     }
 
     draw_debug(ctx, center_x, center_y, size, track, opts) {
@@ -826,6 +1077,11 @@ function draw_track(ctx, track, size, now) {
 function draw(circle_id, pulse, now) {
 
     const circle_opts = { min_radius_devider: settings.min_radius_devider, radius0_ratio: settings.main.radius0 }
+    let thumbnail_opts = { ...circle_opts, radius0_ratio: settings.thumbnail.radius0, dot: 0.02, dot_line: 0.04, sep_line: 0.02, style: settings.thumbnail.style }
+    if ( settings.thumbnail.shadow == "" ) {
+        thumbnail_opts = { ...thumbnail_opts, shadow: null }
+    }
+    let main_opts = { ...circle_opts, shadow: null }
 
     const ctx = canvas.getContext('2d')
     ctx.clearRect(0, 0, canvas.width, canvas.height)
@@ -836,9 +1092,9 @@ function draw(circle_id, pulse, now) {
 
     for (let i = 0; i < circles.length; i++) {
         if (i == circle_id) {
-            circles[i].draw(ctx, canvas.width / 2, canvas.height / 2, canvas.size * settings.main.size, pulse, null, { ...circle_opts, shadow: null })
+            circles[i].draw(ctx, canvas.width / 2, canvas.height / 2, canvas.size * settings.main.size, pulse, null, main_opts)
         }
-        circles[i].draw(ctx, canvas.size * settings.secondary.width * (i + 0.5), canvas.size * settings.secondary.height * 0.5, canvas.size * settings.secondary.size, i == circle_id, i + 1, { ...circle_opts, dot: 0.02, dot_line: 0.04, sep_line: 0.05 })
+        circles[i].draw(ctx, canvas.size * settings.thumbnail.width * (i + 0.5), canvas.size * settings.thumbnail.height * 0.5, canvas.size * settings.thumbnail.size, i == circle_id, i + 1, thumbnail_opts)
     }
 
     
@@ -851,7 +1107,7 @@ function draw(circle_id, pulse, now) {
             if (i == circle_id) {
                 circles[i].draw_debug(ctx, canvas.width / 2, canvas.height / 2, canvas.size * settings.main.size, track, circle_opts)
             } else {
-                circles[i].draw_debug(ctx, canvas.size * settings.secondary.width * (i + 0.5), canvas.size * settings.secondary.height * 0.5, canvas.size * settings.secondary.size, track, { ...circle_opts, radius0_ratio: 0.5, line: 0.02 })
+                circles[i].draw_debug(ctx, canvas.size * settings.thumbnail.width * (i + 0.5), canvas.size * settings.thumbnail.height * 0.5, canvas.size * settings.thumbnail.size, track, { ...circle_opts, radius0_ratio: 0.5, line: 0.02 })
             }
         }
 
@@ -882,14 +1138,10 @@ function draw(circle_id, pulse, now) {
 function resize() {
     reset_tracks()
     canvas.size = Math.min(window.innerWidth, window.innerHeight)
-    const vertical = window.innerWidth > window.innerHeight
-    if (editor.hasFocus()) {
-        canvas.size /= vertical ? 2 : 4
-    }
-    document.body.className = vertical ? "vertical" : "horizontal"
-    canvas.width = canvas.size
-    canvas.height = canvas.size * 1.4
-    canvas.radius0 = canvas.size * 0.10
+    const portrate = window.innerWidth < window.innerHeight
+    document.body.className = portrate ? "portrate" : "landscape"
+    canvas.width = window.innerWidth
+    canvas.height = window.innerHeight - settings.footer_height - settings.header_height
 }
 
 function on_editor_change(editor) {
@@ -1044,11 +1296,11 @@ function end_tracks() {
                 }
             } else {
 
-                const x = track.start.x - canvas.size * settings.secondary.width * (circle_id + 0.5)
-                const y = track.start.y - canvas.size * settings.secondary.height * 0.5
+                const x = track.start.x - canvas.size * settings.thumbnail.width * (circle_id + 0.5)
+                const y = track.start.y - canvas.size * settings.thumbnail.height * 0.5
                 const r = Math.sqrt(x * x + y * y)
 
-                if (r < canvas.size * settings.secondary.size * 0.5) {
+                if (r < canvas.size * settings.thumbnail.size * 0.5) {
                     if (!("drag" in track)) {
                         checkpoint.ts = checkpoint.ts ? processed.ts + settings.start_shift : 0
                         checkpoint.circle_id = circle_id
@@ -1106,8 +1358,22 @@ function on_editor_blur() {
     resize()
 }
 
+function on_hash_change() {
+    if (location.hash == "#code") {
+        setTimeout(() => { editor.refresh(); editor.focus() }, 0)
+    } else if (!["#home","#settings","#catalog","#clone"].includes(location.hash)) {
+        history.replaceState(null, "", "#home")
+    }
+}
+
+function update_css() {
+    document.body.style.setProperty("--footer-height", settings.footer_height + "px")
+    document.body.style.setProperty("--header-height", settings.header_height + "px")
+}
+
 window.requestAnimationFrame(process)
 window.addEventListener('resize', resize, false)
+window.addEventListener('hashchange', on_hash_change)
 canvas.addEventListener("mousedown",   on_mousedown)
 canvas.addEventListener("mousemove",   on_mousemove)
 canvas.addEventListener("mouseup",     on_mouseup)
@@ -1124,6 +1390,8 @@ var checkpoint = { circle_id: 0, ts: 0, pulse: 0 }
 var processed = checkpoint
 
 fix_circles()
+on_hash_change()
+update_css()
 
 </script>
 </body>
