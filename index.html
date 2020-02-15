@@ -1,5 +1,6 @@
 <html>
 <head>
+<script>const VERSION="v0.0.1"</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.1.2/howler.core.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.48.4/codemirror.min.js"></script>
@@ -166,6 +167,13 @@ nav a{
 
 var canvas = document.getElementById("canvas")
 
+/***/
+if (localStorage.getItem("version") != VERSION) {
+    localStorage.clear()
+    localStorage.setItem("version", VERSION)
+}
+/***/
+
 class Settings {
     constructor(version, params) {
         this.version = version
@@ -177,7 +185,7 @@ class Settings {
 
     load(text) {
         const stored = JSON.parse(text)
-        if (!("version" in stored)) {
+        if (!stored || !("version" in stored)) {
             return
         }
         for (const [name, value] of stored.entries) {
@@ -237,7 +245,7 @@ class Param {
     }
 }
 
-const settings = new Settings ("v0.0.1", [
+const settings = new Settings (VERSION, [
 
     new Param("background_color", "white"),
     new Param("low_vol_color", "#eee"),
@@ -264,10 +272,10 @@ const settings = new Settings ("v0.0.1", [
     new Param("thumbnail.size", 0.17),
     new Param("thumbnail.style", "simple"),
     new Param("thumbnail.radius0", 0.3),
-    new Param("thumbnail.shadow", 5),
+    new Param("thumbnail.shadow", ""),
 ])
 
-settings.load(window.localStorage.getItem("settings"))
+settings.load(localStorage.getItem("settings"))
 
 var form = document.createElement("form")
 document.getElementById("settings").append(form)
@@ -277,7 +285,7 @@ function on_form_change(e) {
     console.log(`setting ${e.target.name}="${e.target.value}"`)
     settings.set(e.target.name, e.target.value)
     update_css()
-    window.localStorage.setItem("settings", settings.store())
+    localStorage.setItem("settings", settings.store())
 }
 
 
@@ -935,7 +943,7 @@ djembe:    ttst tstt stts ttst
 }
 
 const compos_name = "djole"
-const text = window.localStorage.getItem(compos_name) || rhythm_collection[compos_name] || ""
+const text = localStorage.getItem(compos_name) || rhythm_collection[compos_name] || ""
 
 
 var circles = parse_rhythm(text)
@@ -1148,7 +1156,7 @@ function on_editor_change(editor) {
     const text = editor.getValue()
     circles = parse_rhythm(text)
     fix_circles()
-    window.localStorage.setItem(compos_name, text)
+    localStorage.setItem(compos_name, text)
 }
 
 
