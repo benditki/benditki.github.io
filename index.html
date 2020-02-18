@@ -27,7 +27,7 @@ body {
 body.portrate {
     flex-direction: column;
 }
-body.ladscape {
+body.landscape {
     flex-direction: row;
 }
 h1 {
@@ -38,17 +38,35 @@ h1 {
     --header-height: 24px;
     --footer-height: 48px;
 }
-footer {
+.portrate footer {
     max-height: var(--footer-height);
     min-height: var(--footer-height);
 }
-header {
+.portrate header {
     max-height: var(--header-height);
     min-height: var(--header-height);
 }
+:root {
+    --header-width: 24px;
+    --footer-width: 48px;
+}
+.landscape footer {
+    max-width: var(--footer-width);
+    min-width: var(--footer-width);
+    min-height: 100%;
+    max-height: 100%;
+}
+.landscape header {
+    max-width: var(--header-width);
+    min-width: var(--header-width);
+    min-height: 100%;
+    max-height: 100%;
+}
+
 main {
     display: none;
     flex-grow: 1;
+    overflow: auto;
 }
 main:target {
     display: block;
@@ -57,6 +75,10 @@ footer nav {
     display: flex;
     justify-content: space-evenly;
     align-items: center;
+}
+.landscape footer nav {
+    flex-direction: column;
+    height: 100%;
 }
 nav a{
     display: block;
@@ -294,6 +316,9 @@ const settings = new Settings (VERSION, [
     new Param("footer_height", 48),
     new Param("start_shift", 10),
 
+    new Param("landscape.header_width", 24),
+    new Param("landscape.footer_width", 48),
+
     new Param("default_freq", 7.0),
 
     new Param("volume_mix.factor", 0.3),
@@ -304,14 +329,31 @@ const settings = new Settings (VERSION, [
     new Param("play_range.sound.0", -0.1),
     new Param("play_range.sound.1", 0.3),
     new Param("play_range.prev_round", 0.5),
+
     new Param("main.size", 0.95),
     new Param("main.radius0", 0.1),
+
     new Param("thumbnail.height", 0.2),
     new Param("thumbnail.width", 0.2),
     new Param("thumbnail.size", 0.17),
     new Param("thumbnail.style", "simple"),
     new Param("thumbnail.radius0", 0.3),
     new Param("thumbnail.shadow", ""),
+
+    new Param("instrument.height", 0.2),
+    new Param("instrument.width", 0.2),
+    new Param("instrument.size", 0.17),
+    new Param("instrument.radius0", 0.3),
+    new Param("instrument.shadow", ""),
+
+
+    new Param("landscape.thumbnail.height", 0.2),
+    new Param("landscape.thumbnail.width", 0.2),
+    new Param("landscape.thumbnail.size", 0.17),
+    new Param("landscape.instrument.height", 0.2),
+    new Param("landscape.instrument.width", 0.2),
+    new Param("landscape.instrument.size", 0.17),
+
 ])
 
 settings.load(localStorage.getItem("settings"))
@@ -1297,15 +1339,27 @@ function draw(circle_id, pulse, now) {
         return
     }
 
-    let thumbnail_delta = settings.thumbnail.width
-    if (circles.length > 1) {
-        thumbnail_delta = Math.min(settings.thumbnail.width, (1 - settings.thumbnail.width) / (circles.length - 1))
+    let thumbnail_delta, thumbnail_dims
+    if (canvas.portrate) {
+        let delta = settings.thumbnail.width
+        if (circles.length > 1) {
+            delta = Math.min(delta, (canvas.width / canvas.size - settings.thumbnail.width) / (circles.length - 1))
+        }
+        thumbnail_delta = [delta, 0]
+        thumbnail_dims = settings.thumbnail
+    } else {
+        let delta = settings.landscape.thumbnail.height
+        if (circles.length > 1) {
+            delta = Math.min(delta, (canvas.height / canvas.size - settings.landscape.thumbnail.height) / (circles.length - 1))
+        }
+        thumbnail_delta = [0, delta]
+        thumbnail_dims = settings.landscape.thumbnail
     }
     for (let i = 0; i < circles.length; i++) {
         if (i == circle_id) {
             circles[i].draw(ctx, canvas.width / 2, canvas.height / 2, canvas.size * settings.main.size, pulse, null, main_opts)
         }
-        circles[i].draw(ctx, canvas.size * (settings.thumbnail.width * 0.5 + i * thumbnail_delta), canvas.size * settings.thumbnail.height * 0.5, canvas.size * settings.thumbnail.size, i == circle_id, i + 1, thumbnail_opts)
+        circles[i].draw(ctx, canvas.size * (thumbnail_dims.width * 0.5 + i * thumbnail_delta[0]), canvas.size * (thumbnail_dims.height * 0.5 + i * thumbnail_delta[1]), canvas.size * thumbnail_dims.size, i == circle_id, i + 1, thumbnail_opts)
     }
 
     
@@ -1318,7 +1372,7 @@ function draw(circle_id, pulse, now) {
             if (i == circle_id) {
                 circles[i].draw_debug(ctx, canvas.width / 2, canvas.height / 2, canvas.size * settings.main.size, track, circle_opts)
             } else {
-                circles[i].draw_debug(ctx, canvas.size * (settings.thumbnail.width * 0.5 + i * thumbnail_delta), canvas.size * settings.thumbnail.height * 0.5, canvas.size * settings.thumbnail.size, track, { ...circle_opts, radius0_ratio: 0.5, line: 0.02 })
+                circles[i].draw_debug(ctx, canvas.size * (thumbnail_dims.width * 0.5 + i * thumbnail_delta[0]), canvas.size * (thumbnail_dims.height * 0.5 + i * thumbnail_delta[1]), canvas.size * thumbnail_dims.size, track, { ...circle_opts, radius0_ratio: 0.5, line: 0.02 })
             }
         }
 
@@ -1348,11 +1402,19 @@ function draw(circle_id, pulse, now) {
 
 function resize() {
     reset_tracks()
+    canvas.portrate = window.innerWidth < window.innerHeight - settings.footer_height - settings.header_height
+    document.body.className = canvas.portrate ? "portrate" : "landscape"
     canvas.size = Math.min(window.innerWidth, window.innerHeight)
-    const portrate = window.innerWidth < window.innerHeight
-    document.body.className = portrate ? "portrate" : "landscape"
-    canvas.width = window.innerWidth
-    canvas.height = window.innerHeight - settings.footer_height - settings.header_height
+    if (canvas.portrate) {
+        canvas.height = window.innerHeight - settings.footer_height - settings.header_height
+        canvas.width = window.innerWidth
+        canvas.size = Math.floor(Math.min(canvas.width, canvas.height / (1 + settings.thumbnail.height + settings.instrument.height)))
+    } else {
+        canvas.height = window.innerHeight
+        canvas.width = window.innerWidth - settings.landscape.header_width - settings.landscape.footer_width
+        canvas.size = Math.floor(Math.min(canvas.width / (1 + settings.landscape.thumbnail.width + settings.landscape.instrument.width), canvas.height))
+    }
+    console.log(`orient=${canvas.portrate?'portrate':'landscape'} window=${window.innerWidth}x${window.innerHeight} canvas=${canvas.width}x${canvas.height} size=${canvas.size}` )
 }
 
 function on_editor_change(editor) {
@@ -1506,16 +1568,28 @@ function end_tracks() {
                     }
                 }
             } else {
-
-                let thumbnail_delta = settings.thumbnail.width
-                if (circles.length > 1) {
-                    thumbnail_delta = Math.min(settings.thumbnail.width, (1 - settings.thumbnail.width) / (circles.length - 1))
+                let thumbnail_delta, thumbnail_dims
+                if (canvas.portrate) {
+                    let delta = settings.thumbnail.width
+                    if (circles.length > 1) {
+                        delta = Math.min(delta, (canvas.width / canvas.size - settings.thumbnail.width) / (circles.length - 1))
+                    }
+                    thumbnail_delta = [delta, 0]
+                    thumbnail_dims = settings.thumbnail
+                } else {
+                    let delta = settings.landscape.thumbnail.height
+                    if (circles.length > 1) {
+                        delta = Math.min(delta, (canvas.height / canvas.size - settings.landscape.thumbnail.height) / (circles.length - 1))
+                    }
+                    thumbnail_delta = [0, delta]
+                    thumbnail_dims = settings.landscape.thumbnail
                 }
-                const x = track.start.x - canvas.size * (settings.thumbnail.width * 0.5 + circle_id * thumbnail_delta)
-                const y = track.start.y - canvas.size * settings.thumbnail.height * 0.5
+
+                const x = track.start.x - canvas.size * (thumbnail_dims.width * 0.5 + circle_id * thumbnail_delta[0])
+                const y = track.start.y - canvas.size * (thumbnail_dims.height * 0.5 + circle_id * thumbnail_delta[1])
                 const r = Math.sqrt(x * x + y * y)
 
-                if (r < canvas.size * settings.thumbnail.size * 0.5) {
+                if (r < canvas.size * thumbnail_dims.size * 0.5) {
                     if (!("drag" in track)) {
                         checkpoint.ts = checkpoint.ts ? processed.ts + settings.start_shift : 0
                         checkpoint.circle_id = circle_id
@@ -1608,8 +1682,10 @@ function on_hash_change() {
 }
 
 function update_css() {
-    document.body.style.setProperty("--footer-height", settings.footer_height + "px")
     document.body.style.setProperty("--header-height", settings.header_height + "px")
+    document.body.style.setProperty("--footer-height", settings.footer_height + "px")
+    document.body.style.setProperty("--header-width", settings.landscape.header_width + "px")
+    document.body.style.setProperty("--footer-width", settings.landscape.footer_width + "px")
 }
 
 window.requestAnimationFrame(process)
