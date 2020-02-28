@@ -446,14 +446,19 @@ class Instrument {
         }
     }
 
+    get current() {
+        return this.symbols[0]
+    }
+
     play(symbol, volume) {
         let sound = this.sound instanceof Sound ? this.sound : this.sound[symbol]
         sound.play(volume)
     }
 
-    next_symbol(symbol) {
-        const symbol_id = this.symbols.indexOf(symbol)
-        return symbol_id == this.symbols.length - 1 ? "." : this.symbols[symbol_id + 1]
+    update_current(index) {
+        const temp = this.current
+        this.symbols[0] = this.symbols[index]
+        this.symbols[index] = temp
     }
 }
 
@@ -1390,12 +1395,12 @@ function draw(circle_id, pulse, now) {
     ctx.font = Math.floor(canvas.size * 0.045) +"px sans-serif"
     ctx.textAlign = "center"
     ctx.textBaseline = canvas.portrate ? "ideographic" : "middle"
+    const radius0 = canvas.size * instrument_dims.size * 0.25
+    const radius1 = canvas.size * instrument_dims.size * 0.5
+    const angle_delta = 2 * Math.PI / 6
     for (const [ring_id, ring] of circles[circle_id].rings.entries()) {
         ctx.save()
         ctx.translate(instrument_start[0] + canvas.size * (instrument_dims.width * 0.5 + ring_id * instrument_delta[0]), instrument_start[1] + canvas.size * (instrument_dims.height * 0.5 + ring_id * instrument_delta[1]))
-        const radius0 = canvas.size * instrument_dims.size * 0.25
-        const radius1 = canvas.size * instrument_dims.size * 0.5
-        const angle_delta = 2 * Math.PI / 6
         if (ring.volume.value > 0) {
             ctx.fillStyle = chroma.mix(settings.low_vol_color, ring.instrument.color, settings.volume_mix.factor * ring.volume.value + settings.volume_mix.shift)
         } else {
@@ -1406,7 +1411,6 @@ function draw(circle_id, pulse, now) {
             ctx.save()
             if (i > 0) {
                 ctx.rotate(0.5*Math.PI + angle_delta * (i - 0.5 - (ring.instrument.symbols.length - 1) / 2))
-                ctx.translate(0, 0)
 
                 ctx.beginPath()
                 ctx.arc(0, 0, radius1, + angle_delta / 2 - 0.02, - angle_delta / 2 + 0.02, true)
@@ -1607,72 +1611,118 @@ function end_tracks() {
 
         const track = tracks[touch_ids[0]]
         const circles = catalog.rhythm.circles
-        for (let circle_id = 0; circle_id < circles.length; circle_id++) {
-            if (circle_id == processed.circle_id) {
 
-                const x = track.start.x - canvas.width / 2
-                const y = track.start.y - canvas.height / 2
+        if (canvas.portrate && track.start.y < settings.thumbnail.height * canvas.size ||
+            !canvas.portrate && track.start.x < settings.landscape.thumbnail.width * canvas.size) {
+            for (let circle_id = 0; circle_id < circles.length; circle_id++) {
+                if (circle_id != processed.circle_id) {
+
+                    let thumbnail_delta, thumbnail_dims
+                    if (canvas.portrate) {
+                        let delta = settings.thumbnail.width
+                        if (circles.length > 1) {
+                            delta = Math.min(delta, (canvas.width / canvas.size - settings.thumbnail.width) / (circles.length - 1))
+                        }
+                        thumbnail_delta = [delta, 0]
+                        thumbnail_dims = settings.thumbnail
+                    } else {
+                        let delta = settings.landscape.thumbnail.height
+                        if (circles.length > 1) {
+                            delta = Math.min(delta, (canvas.height / canvas.size - settings.landscape.thumbnail.height) / (circles.length - 1))
+                        }
+                        thumbnail_delta = [0, delta]
+                        thumbnail_dims = settings.landscape.thumbnail
+                    }
+
+                    const x = track.start.x - canvas.size * (thumbnail_dims.width * 0.5 + circle_id * thumbnail_delta[0])
+                    const y = track.start.y - canvas.size * (thumbnail_dims.height * 0.5 + circle_id * thumbnail_delta[1])
+                    const r = Math.sqrt(x * x + y * y)
+
+                    if (r < canvas.size * thumbnail_dims.size * 0.5) {
+                        if (!("drag" in track)) {
+                            checkpoint.ts = checkpoint.ts ? processed.ts + settings.start_shift : 0
+                            checkpoint.circle_id = circle_id
+                            checkpoint.pulse = 0
+                            circles.forEach(c => c.reset_played())
+                            console.log(`jump to circle=${circle_id} ts=${processed.ts.toFixed(2)}`)
+                        }
+                    }
+                }
+            }
+        } else if (canvas.portrate && track.start.y < (settings.thumbnail.height + 1) * canvas.size ||
+            !canvas.portrate && track.start.x < (settings.landscape.thumbnail.width + 1) * canvas.size) {
+
+            const x = track.start.x - canvas.width / 2
+            const y = track.start.y - canvas.height / 2
+            const r = Math.sqrt(x * x + y * y)
+
+            const circle = circles[processed.circle_id]
+            const radius0 = canvas.size * settings.main.radius0
+
+            if (r < radius0) {
+                if ("drag" in track) {
+                    if(track.drag == "y" && "planned_freq" in track && track.planned_freq.circle_id == processed.circle_id) {
+                        app.update_freq(track.planned_freq.value)
+                    }
+                } else {
+                    toggle_play()
+                }
+            } else if (r < canvas.size * settings.main.size) {
+                const radius_delta = (canvas.size * 0.5 - radius0) / Math.max(settings.min_radius_devider, circle.radii_count)
+                const p = (Math.atan2(y, x) / (2 * Math.PI) + 0.25) * circle.period
+                for (const dot of circle.dots) {
+                    if (in_limits((r - radius0) / radius_delta - dot.radius_id, 0, 1.0) &&
+                        in_limits(diff_period(dot.pulse, p, circle.period), -0.5, 0.5)) {
+
+                        const ring = circle.rings[dot.ring_id]
+                        if ("drag" in track) {
+                            if (track.drag == "y" && "planned_volume" in track && track.planned_volume.circle_id == processed.circle_id && track.planned_volume.ring_id == dot.ring_id) {
+                                ring.update_volume(track.planned_volume.value)
+                            }
+                        } else {
+                            dot.orig.update_symbol(dot.active ? "." : ring.instrument.current)
+                        }
+                        break
+                    }
+                }
+            }
+        } else {
+            const circle = circles[processed.circle_id]
+            let instrument_delta, instrument_dims, instrument_start
+            if (canvas.portrate) {
+                instrument_start = [0, canvas.height - settings.instrument.height * canvas.size]
+                let delta = settings.instrument.width
+                if (circle.rings.length > 1) {
+                    delta = Math.min(delta, (canvas.width / canvas.size - settings.instrument.width) / (circle.rings.length - 1))
+                }
+                instrument_delta = [delta, 0]
+                instrument_dims = settings.instrument
+            } else {
+                instrument_start = [canvas.width - settings.instrument.width * canvas.size, 0]
+                let delta = settings.landscape.instrument.height
+                if (circle.rings.length > 1) {
+                    delta = Math.min(delta, (canvas.height / canvas.size - settings.landscape.instrument.height) / (circle.rings.length - 1))
+                }
+                instrument_delta = [0, delta]
+                instrument_dims = settings.landscape.instrument
+            }
+
+            const radius0 = canvas.size * instrument_dims.size * 0.25
+            const radius1 = canvas.size * instrument_dims.size * 0.5
+            const angle_delta = 2 * Math.PI / 6
+
+            for (const [ring_id, ring] of circle.rings.entries()) {
+                const x = track.start.x - (instrument_start[0] + canvas.size * (instrument_dims.width * 0.5 + ring_id * instrument_delta[0]))
+                const y = track.start.y - (instrument_start[1] + canvas.size * (instrument_dims.height * 0.5 + ring_id * instrument_delta[1]))
                 const r = Math.sqrt(x * x + y * y)
-
-                const circle = circles[circle_id]
-                const radius0 = canvas.size * settings.main.radius0
 
                 if (r < radius0) {
-                    if ("drag" in track) {
-                        if(track.drag == "y" && "planned_freq" in track && track.planned_freq.circle_id == circle_id) {
-                            app.update_freq(track.planned_freq.value)
-                        }
-                    } else {
-                        toggle_play()
-                    }
-                } else if (r < canvas.size * settings.main.size) {
-                    const radius_delta = (canvas.size * 0.5 - radius0) / Math.max(settings.min_radius_devider, circle.radii_count)
-                    const p = (Math.atan2(y, x) / (2 * Math.PI) + 0.25) * circle.period
-                    for (const dot of circle.dots) {
-                        if (in_limits((r - radius0) / radius_delta - dot.radius_id, 0, 1.0) &&
-                            in_limits(diff_period(dot.pulse, p, circle.period), -0.5, 0.5)) {
-
-                            const ring = circle.rings[dot.ring_id]
-                            if ("drag" in track) {
-                                if (track.drag == "y" && "planned_volume" in track && track.planned_volume.circle_id == circle_id && track.planned_volume.ring_id == dot.ring_id) {
-                                    ring.update_volume(track.planned_volume.value)
-                                }
-                            } else {
-                                dot.orig.update_symbol(ring.instrument.next_symbol(dot.symbol))
-                            }
-                            break
-                        }
-                    }
-                }
-            } else {
-                let thumbnail_delta, thumbnail_dims
-                if (canvas.portrate) {
-                    let delta = settings.thumbnail.width
-                    if (circles.length > 1) {
-                        delta = Math.min(delta, (canvas.width / canvas.size - settings.thumbnail.width) / (circles.length - 1))
-                    }
-                    thumbnail_delta = [delta, 0]
-                    thumbnail_dims = settings.thumbnail
-                } else {
-                    let delta = settings.landscape.thumbnail.height
-                    if (circles.length > 1) {
-                        delta = Math.min(delta, (canvas.height / canvas.size - settings.landscape.thumbnail.height) / (circles.length - 1))
-                    }
-                    thumbnail_delta = [0, delta]
-                    thumbnail_dims = settings.landscape.thumbnail
-                }
-
-                const x = track.start.x - canvas.size * (thumbnail_dims.width * 0.5 + circle_id * thumbnail_delta[0])
-                const y = track.start.y - canvas.size * (thumbnail_dims.height * 0.5 + circle_id * thumbnail_delta[1])
-                const r = Math.sqrt(x * x + y * y)
-
-                if (r < canvas.size * thumbnail_dims.size * 0.5) {
-                    if (!("drag" in track)) {
-                        checkpoint.ts = checkpoint.ts ? processed.ts + settings.start_shift : 0
-                        checkpoint.circle_id = circle_id
-                        checkpoint.pulse = 0
-                        circles.forEach(c => c.reset_played())
-                        console.log(`jump to circle=${circle_id} ts=${processed.ts.toFixed(2)}`)
+                    ring.instrument.play(ring.instrument.current, 1.0)
+                } else if (r < radius1 && ring.instrument.symbols.length > 1) {
+                    const symbol_id = Math.floor((Math.atan2(y, x) / (2 * Math.PI) - 0.25) * 6 + (ring.instrument.symbols.length - 1) / 2) + 1
+                    if (in_limits(symbol_id, 1, ring.instrument.symbols.length)) {
+                        ring.instrument.update_current(symbol_id)
+                        ring.instrument.play(ring.instrument.current, 1.0)
                     }
                 }
             }
