@@ -221,7 +221,7 @@ a.switch:hover {
 
 "use strict";
 
-const VERSION = "v0.0.3"
+const VERSION = "v0.0.4"
 
 
 var canvas = document.getElementById("canvas")
@@ -340,9 +340,9 @@ const settings = new Settings (VERSION, [
     new Param("thumbnail.radius0", 0.3),
     new Param("thumbnail.shadow", ""),
 
-    new Param("instrument.height", 0.2),
+    new Param("instrument.height", 0.25),
     new Param("instrument.width", 0.2),
-    new Param("instrument.size", 0.17),
+    new Param("instrument.size", 0.2),
     new Param("instrument.radius0", 0.3),
     new Param("instrument.shadow", ""),
 
@@ -352,7 +352,7 @@ const settings = new Settings (VERSION, [
     new Param("landscape.thumbnail.size", 0.17),
     new Param("landscape.instrument.height", 0.2),
     new Param("landscape.instrument.width", 0.2),
-    new Param("landscape.instrument.size", 0.17),
+    new Param("landscape.instrument.size", 0.2),
 
 ])
 
@@ -584,7 +584,7 @@ class Circle {
             ctx.fill()
         }
         if (opts.style == "full") {
-            this.draw_dots(ctx, x, y, size, pulse, opts)
+            Circle.draw_dots(ctx, this.dots, x, y, size, pulse, this.period, this.radii_count, opts)
         } else if (opts.style == "simple") {
             this.draw_simple(ctx, x, y, size, pulse, opts)
         } else {
@@ -608,22 +608,22 @@ class Circle {
         ctx.restore()
     }
 
-    draw_dots (ctx, x, y, size, pulse, opts) {
-        opts = { dot: 0.012, dot_line: 0.012, sep_line: 0.006, radii_line: 0.006, ...opts }
-        const angle_delta = 2.0 * Math.PI / this.period
+    static draw_dots (ctx, dots, x, y, size, pulse, period, radii_count, opts) {
+        opts = { dot: 0.012, dot_line: 0.8, sep_line: 0.006, radii_line: 0.006, ...opts }
+        const angle_delta = 2.0 * Math.PI / period
         const radius0 = size * opts.radius0_ratio
         const dot_size = size * opts.dot
-        const radius_delta = (size * 0.5 - radius0) / Math.max(opts.min_radius_devider, this.radii_count)
-        const radius1 = radius0 + this.radii_count * radius_delta
+        const radius_delta = (size * 0.5 - radius0) / Math.max(opts.min_radius_devider, radii_count)
+        const radius1 = radius0 + radii_count * radius_delta
 
      
         ctx.save()
         ctx.translate(x, y)
 
-        for (const dot of this.dots) {
+        for (const dot of dots) {
             ctx.save()
 
-            ctx.rotate((-0.5 + 2 * dot.pulse / this.period) * Math.PI)
+            ctx.rotate((-0.5 + 2 * dot.pulse / period) * Math.PI)
 
             const radius = radius0 + radius_delta * (dot.radius_id + 0.5)
             const playing = pulse === true || pulse !== true && pulse !== false && dot.active && (checkpoint.ts || checkpoint.pulse) && in_limits((pulse - dot.pulse) % dot.period, settings.play_range.draw[0], settings.play_range.draw[1])
@@ -640,40 +640,8 @@ class Circle {
             ctx.fill()
 
             if (dot.active) {
-                ctx.save()
-                ctx.translate(radius, 0)
-                ctx.beginPath()
-                if (dot.symbol == 's' || dot.symbol == 'h') {
-                    ctx.moveTo(0 - dot_size, 0 - dot_size)
-                    ctx.lineTo(0 - dot_size, 0 + dot_size)
-                    ctx.lineTo(0 + dot_size, 0)
-                } else if (dot.symbol == 'c') {
-                    ctx.moveTo(0 - dot_size, 0 - dot_size)
-                    ctx.lineTo(0 - dot_size, 0 + dot_size)
-                    ctx.lineTo(0 + dot_size, 0 + dot_size)
-                    ctx.lineTo(0 + dot_size, 0 - dot_size)
-                } else if (dot.symbol == 'k') {
-                    ctx.moveTo(0 - dot_size, 0 - dot_size / 2)
-                    ctx.lineTo(0 - dot_size, 0 + dot_size / 2)
-                    ctx.lineTo(0 + dot_size, 0 + dot_size / 2)
-                    ctx.lineTo(0 + dot_size, 0 - dot_size / 2)
-                } else if (dot.symbol == 'd' || dot.symbol == 'b') {
-                    ctx.moveTo(0 - dot_size, 0 - dot_size / 2)
-                    ctx.lineTo(0 - dot_size, 0 + dot_size / 2)
-                    ctx.lineTo(0 + dot_size, 0 + dot_size)
-                    ctx.lineTo(0 + dot_size, 0 - dot_size)
-                } else {
-                    ctx.arc(0, 0, dot_size, 0, 2 * Math.PI)
-                }
-                ctx.closePath()
-                if (opts.dot_line) {
-                    ctx.lineWidth = size * opts.dot_line
-                    ctx.strokeStyle = settings.background_color
-                    ctx.stroke()
-                }
-                ctx.fillStyle = dot.volume > 0 ? settings.dot_color : settings.dot_dim_color
-                ctx.fill()
-                ctx.restore()
+                const dot_opts = { line_width: opts.dot_line, fill_color: dot.volume > 0 ? settings.dot_color : settings.dot_dim_color }
+                draw_symbol(ctx, radius, 0, dot_size, dot.symbol, dot_opts)
             }
 
             ctx.restore()
@@ -682,9 +650,9 @@ class Circle {
         ctx.strokeStyle = settings.background_color
         ctx.lineWidth = size * opts.radii_line
 
-        for (let i = 0; i < this.period; i++) {
+        for (let i = 0; i < period; i++) {
             ctx.save()
-            ctx.rotate(2 * Math.PI * (i - 0.5) / this.period)
+            ctx.rotate(2 * Math.PI * (i - 0.5) / period)
             ctx.beginPath()
             ctx.moveTo(radius0, 0)
             ctx.lineTo(radius1, 0)
@@ -693,7 +661,7 @@ class Circle {
         }
 
         ctx.lineWidth = size * opts.sep_line
-        for (let i = 0; i < this.radii_count + 1; i++) {
+        for (let i = 0; i < radii_count + 1; i++) {
             ctx.beginPath()
             ctx.arc(0, 0, radius0 + i * radius_delta, 0, 2 * Math.PI)
             ctx.stroke()
@@ -1321,6 +1289,44 @@ function draw_track(ctx, track, size, now) {
     }
 }
 
+function draw_symbol(ctx, x, y, size, symbol, opts) {
+    opts = { fill_color: settings.dot_color , ...opts}
+    ctx.save()
+    ctx.translate(x, y)
+    ctx.beginPath()
+    if (symbol == 's' || symbol == 'h') {
+        ctx.moveTo(0 - size, 0 - size)
+        ctx.lineTo(0 - size, 0 + size)
+        ctx.lineTo(0 + size, 0)
+    } else if (symbol == 'c') {
+        ctx.moveTo(0 - size, 0 - size)
+        ctx.lineTo(0 - size, 0 + size)
+        ctx.lineTo(0 + size, 0 + size)
+        ctx.lineTo(0 + size, 0 - size)
+    } else if (symbol == 'k') {
+        ctx.moveTo(0 - size, 0 - size / 2)
+        ctx.lineTo(0 - size, 0 + size / 2)
+        ctx.lineTo(0 + size, 0 + size / 2)
+        ctx.lineTo(0 + size, 0 - size / 2)
+    } else if (symbol == 'd' || symbol == 'b') {
+        ctx.moveTo(0 - size, 0 - size / 2)
+        ctx.lineTo(0 - size, 0 + size / 2)
+        ctx.lineTo(0 + size, 0 + size)
+        ctx.lineTo(0 + size, 0 - size)
+    } else {
+        ctx.arc(0, 0, size, 0, 2 * Math.PI)
+    }
+    ctx.closePath()
+    if (opts.line_width) {
+        ctx.lineWidth = size * opts.line_width
+        ctx.strokeStyle = settings.background_color
+        ctx.stroke()
+    }
+    ctx.fillStyle = opts.fill_color
+    ctx.fill()
+    ctx.restore()
+}
+
 function draw(circle_id, pulse, now) {
 
     const circle_opts = { min_radius_devider: settings.min_radius_devider, radius0_ratio: settings.main.radius0 }
@@ -1362,6 +1368,73 @@ function draw(circle_id, pulse, now) {
         circles[i].draw(ctx, canvas.size * (thumbnail_dims.width * 0.5 + i * thumbnail_delta[0]), canvas.size * (thumbnail_dims.height * 0.5 + i * thumbnail_delta[1]), canvas.size * thumbnail_dims.size, i == circle_id, i + 1, thumbnail_opts)
     }
 
+    let instrument_delta, instrument_dims, instrument_start
+    if (canvas.portrate) {
+        instrument_start = [0, canvas.height - settings.instrument.height * canvas.size]
+        let delta = settings.instrument.width
+        if (circles[circle_id].rings.length > 1) {
+            delta = Math.min(delta, (canvas.width / canvas.size - settings.instrument.width) / (circles[circle_id].rings.length - 1))
+        }
+        instrument_delta = [delta, 0]
+        instrument_dims = settings.instrument
+    } else {
+        instrument_start = [canvas.width - settings.instrument.width * canvas.size, 0]
+        let delta = settings.landscape.instrument.height
+        if (circles[circle_id].rings.length > 1) {
+            delta = Math.min(delta, (canvas.height / canvas.size - settings.landscape.instrument.height) / (circles[circle_id].rings.length - 1))
+        }
+        instrument_delta = [0, delta]
+        instrument_dims = settings.landscape.instrument
+    }
+
+    ctx.font = Math.floor(canvas.size * 0.045) +"px sans-serif"
+    ctx.textAlign = "center"
+    ctx.textBaseline = canvas.portrate ? "ideographic" : "middle"
+    for (const [ring_id, ring] of circles[circle_id].rings.entries()) {
+        ctx.save()
+        ctx.translate(instrument_start[0] + canvas.size * (instrument_dims.width * 0.5 + ring_id * instrument_delta[0]), instrument_start[1] + canvas.size * (instrument_dims.height * 0.5 + ring_id * instrument_delta[1]))
+        const radius0 = canvas.size * instrument_dims.size * 0.25
+        const radius1 = canvas.size * instrument_dims.size * 0.5
+        const angle_delta = 2 * Math.PI / 6
+        if (ring.volume.value > 0) {
+            ctx.fillStyle = chroma.mix(settings.low_vol_color, ring.instrument.color, settings.volume_mix.factor * ring.volume.value + settings.volume_mix.shift)
+        } else {
+            ctx.fillStyle = settings.muted_color
+        }
+
+        for (const [i, symbol] of ring.instrument.symbols.entries()) {
+            ctx.save()
+            if (i > 0) {
+                ctx.rotate(0.5*Math.PI + angle_delta * (i - 0.5 - (ring.instrument.symbols.length - 1) / 2))
+                ctx.translate(0, 0)
+
+                ctx.beginPath()
+                ctx.arc(0, 0, radius1, + angle_delta / 2 - 0.02, - angle_delta / 2 + 0.02, true)
+                ctx.arc(0, 0, radius0 + canvas.size * instrument_dims.size * 0.01, - angle_delta / 2, + angle_delta / 2, false)
+                ctx.closePath()
+                ctx.fill()
+
+                draw_symbol(ctx, radius1 - radius0 / 2, 0, canvas.size * 0.010, symbol, { line_width: 0.5 })
+
+            } else {
+                ctx.rotate(-0.5 * Math.PI)
+
+                ctx.beginPath()
+                ctx.arc(0, 0, radius0 - canvas.size * instrument_dims.size * 0.01, 0, 2 * Math.PI)
+                ctx.fill()
+
+                draw_symbol(ctx, 0, 0, canvas.size * 0.017, symbol, { line_width: 0.5 })
+            }
+            ctx.restore()
+        }
+        ctx.fillStyle = "#521207"
+        ctx.strokeStyle = settings.background_color
+        ctx.lineWidth = canvas.size * 0.005
+        ctx.strokeText(ring.name.value, 0, -radius0)
+        ctx.fillText(ring.name.value, 0, -radius0)
+        ctx.restore()
+    }
+
     
     const touch_ids = Object.keys(tracks)
 
@@ -1379,6 +1452,8 @@ function draw(circle_id, pulse, now) {
         draw_track(ctx, track, canvas.size, now)
 
         if ("planned_freq" in track && track.planned_freq.circle_id == circle_id) {
+            ctx.textAlign = "left"
+            ctx.textBaseline = "middle"
             ctx.font = 'bold 64px sans-serif'
             ctx.fillStyle = "blue"
             ctx.strokeStyle = settings.background_color
@@ -1389,6 +1464,8 @@ function draw(circle_id, pulse, now) {
         }
 
         if ("planned_volume" in track && track.planned_volume.circle_id == circle_id) {
+            ctx.textAlign = "left"
+            ctx.textBaseline = "middle"
             ctx.font = 'bold 64px sans-serif'
             const str = "v" + track.planned_volume.value
             ctx.fillStyle = "green"
